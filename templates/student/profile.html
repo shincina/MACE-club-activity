@@ -1,0 +1,216 @@
+{% extends 'base.html' %}
+{% block title %}Profile — MACE{% endblock %}
+
+{% block sidebar %}
+<div class="menu-section">Main</div>
+<a href="{{ url_for('student_dashboard') }}"><i class="fas fa-home"></i> Dashboard</a>
+<div class="menu-section">Clubs</div>
+<a href="{{ url_for('student_clubs') }}"><i class="fas fa-users"></i> View Clubs</a>
+<a href="{{ url_for('my_clubs') }}"><i class="fas fa-star"></i> My Clubs</a>
+<div class="menu-section">Events</div>
+<a href="{{ url_for('student_events') }}"><i class="fas fa-calendar-alt"></i> Event Timeline</a>
+<a href="{{ url_for('my_events') }}"><i class="fas fa-list-check"></i> My Events</a>
+<div class="menu-section">More</div>
+<a href="{{ url_for('upload_certificate') }}"><i class="fas fa-certificate"></i> Upload Certificate</a>
+<a href="{{ url_for('student_activity_points') }}"><i class="fas fa-trophy"></i> Activity Points</a>
+<a href="{{ url_for('student_announcements') }}"><i class="fas fa-bullhorn"></i> Announcements</a>
+<a href="{{ url_for('student_profile') }}" class="active"><i class="fas fa-user"></i> Profile</a>
+{% endblock %}
+
+{% block content %}
+
+<!-- Edit Profile Modal -->
+<div id="editModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5);
+     z-index:9999; align-items:center; justify-content:center; padding:20px;">
+  <div style="background:#fff; border-radius:16px; padding:32px; width:100%; max-width:480px;
+              box-shadow:0 20px 60px rgba(0,0,0,0.2); position:relative; max-height:90vh; overflow-y:auto;">
+
+    <button onclick="closeEdit()" style="position:absolute; top:16px; right:16px;
+            background:none; border:none; font-size:22px; cursor:pointer; color:#999;">&times;</button>
+
+    <h3 style="margin-bottom:6px; font-size:18px; color:var(--blue);">
+      <i class="fas fa-edit" style="color:var(--gold); margin-right:8px;"></i>Edit Profile
+    </h3>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:24px;">
+      Update your details below. Register number cannot be changed.
+    </p>
+
+    <form method="POST" action="{{ url_for('update_profile') }}">
+
+      <!-- Name -->
+      <div style="margin-bottom:16px;">
+        <label style="font-size:13px; font-weight:600; color:#444; display:block; margin-bottom:6px;">
+          Full Name
+        </label>
+        <input type="text" name="name" value="{{ student.name }}" required
+               style="width:100%; padding:10px 14px; border:2px solid #ddd; border-radius:8px;
+                      font-size:14px; box-sizing:border-box;"
+               onfocus="this.style.borderColor='var(--blue)'"
+               onblur="this.style.borderColor='#ddd'">
+      </div>
+
+      <!-- Register No — read only -->
+      <div style="margin-bottom:16px;">
+        <label style="font-size:13px; font-weight:600; color:#444; display:block; margin-bottom:6px;">
+          Register No. <span style="font-weight:400; color:#aaa;">(cannot be changed)</span>
+        </label>
+        <input type="text" value="{{ student.reg_no }}" disabled
+               style="width:100%; padding:10px 14px; border:1px solid #eee; border-radius:8px;
+                      font-size:14px; background:#f5f5f5; color:#aaa; box-sizing:border-box;">
+      </div>
+
+      <!-- Email -->
+      <div style="margin-bottom:16px;">
+        <label style="font-size:13px; font-weight:600; color:#444; display:block; margin-bottom:6px;">
+          Email
+        </label>
+        <input type="email" name="email" value="{{ student.email }}" required
+               style="width:100%; padding:10px 14px; border:2px solid #ddd; border-radius:8px;
+                      font-size:14px; box-sizing:border-box;"
+               onfocus="this.style.borderColor='var(--blue)'"
+               onblur="this.style.borderColor='#ddd'">
+      </div>
+
+      <!-- Phone -->
+      <div style="margin-bottom:16px;">
+        <label style="font-size:13px; font-weight:600; color:#444; display:block; margin-bottom:6px;">
+          Phone Number
+        </label>
+        <input type="tel" name="phone" value="{{ student.phone or '' }}"
+               placeholder="Enter phone number"
+               style="width:100%; padding:10px 14px; border:2px solid #ddd; border-radius:8px;
+                      font-size:14px; box-sizing:border-box;"
+               onfocus="this.style.borderColor='var(--blue)'"
+               onblur="this.style.borderColor='#ddd'">
+      </div>
+
+      <!-- Semester -->
+      <div style="margin-bottom:24px;">
+        <label style="font-size:13px; font-weight:600; color:#444; display:block; margin-bottom:6px;">
+          Semester
+        </label>
+        <select name="semester"
+                style="width:100%; padding:10px 14px; border:2px solid #ddd; border-radius:8px;
+                       font-size:14px; box-sizing:border-box; background:#fff;"
+                onfocus="this.style.borderColor='var(--blue)'"
+                onblur="this.style.borderColor='#ddd'">
+          {% for s in ['S1','S2','S3','S4','S5','S6','S7','S8'] %}
+            <option value="{{ s }}" {{ 'selected' if student.semester == s }}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button type="button" onclick="closeEdit()"
+                style="flex:1; padding:11px; border:1px solid #ddd; border-radius:8px;
+                       background:#fff; font-size:14px; font-weight:600; cursor:pointer; color:#666;">
+          Cancel
+        </button>
+        <button type="submit"
+                style="flex:1; padding:11px; border:none; border-radius:8px;
+                       background:var(--blue); color:#fff; font-size:14px; font-weight:600; cursor:pointer;">
+          <i class="fas fa-save"></i> Save Changes
+        </button>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<!-- Page content -->
+<div class="page-header">
+  <h2>My Profile</h2>
+</div>
+
+<div style="display:grid; grid-template-columns:1fr 2fr; gap:22px; align-items:start;">
+
+  <!-- Avatar card -->
+  <div class="form-card" style="text-align:center;">
+    <div style="width:90px; height:90px; border-radius:50%; background:var(--blue);
+                display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
+      <i class="fas fa-user" style="font-size:38px; color:#fff;"></i>
+    </div>
+    <h3 style="border:none; margin-bottom:4px; font-size:18px;">{{ student.name }}</h3>
+    <p style="color:var(--muted); font-size:13px;">{{ student.reg_no }}</p>
+    <span class="badge badge-info" style="margin-top:8px;">{{ student.semester }}</span>
+    <div style="margin-top:20px;">
+      <div style="font-size:28px; font-weight:800; color:var(--gold);">{{ student.total_points }}</div>
+      <div style="font-size:12px; color:var(--muted);">Activity Points</div>
+    </div>
+    <div style="margin-top:20px;">
+      <button onclick="openEdit()"
+              style="background:var(--blue); color:#fff; border:none; border-radius:8px;
+                     padding:9px 20px; font-size:13px; font-weight:600; cursor:pointer; width:100%;">
+        <i class="fas fa-edit"></i> Edit Profile
+      </button>
+    </div>
+  </div>
+
+  <!-- Details card -->
+  <div class="form-card">
+    <h3><i class="fas fa-id-card" style="margin-right:8px; color:var(--gold);"></i>Student Details</h3>
+    <table style="width:100%; font-size:14px;">
+      <tbody>
+        <tr>
+          <td style="padding:12px 0; color:var(--muted); width:40%; border-bottom:1px solid #f0f0f0;">Full Name</td>
+          <td style="padding:12px 0; border-bottom:1px solid #f0f0f0;"><strong>{{ student.name }}</strong></td>
+        </tr>
+        <tr>
+          <td style="padding:12px 0; color:var(--muted); border-bottom:1px solid #f0f0f0;">Register No.</td>
+          <td style="padding:12px 0; border-bottom:1px solid #f0f0f0;"><strong>{{ student.reg_no }}</strong></td>
+        </tr>
+        <tr>
+          <td style="padding:12px 0; color:var(--muted); border-bottom:1px solid #f0f0f0;">Email</td>
+          <td style="padding:12px 0; border-bottom:1px solid #f0f0f0;">{{ student.email }}</td>
+        </tr>
+        <tr>
+          <td style="padding:12px 0; color:var(--muted); border-bottom:1px solid #f0f0f0;">Phone</td>
+          <td style="padding:12px 0; border-bottom:1px solid #f0f0f0;">
+            {{ student.phone or '—' }}
+            
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:12px 0; color:var(--muted); border-bottom:1px solid #f0f0f0;">Department</td>
+          <td style="padding:12px 0; border-bottom:1px solid #f0f0f0;">{{ student.dept_name }}</td>
+        </tr>
+        <tr>
+          <td style="padding:12px 0; color:var(--muted); border-bottom:1px solid #f0f0f0;">Semester</td>
+          <td style="padding:12px 0; border-bottom:1px solid #f0f0f0;">{{ student.semester }}</td>
+        </tr>
+        <tr>
+          <td style="padding:12px 0; color:var(--muted);">Graduation Status</td>
+          <td style="padding:12px 0;">
+            {% if student.total_points >= 100 %}
+              <span class="badge badge-success"><i class="fas fa-check"></i> Eligible</span>
+            {% else %}
+              <span class="badge badge-danger">Not Yet Eligible ({{ 100 - student.total_points }} pts needed)</span>
+            {% endif %}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+  function openEdit() {
+    const modal = document.getElementById('editModal');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeEdit() {
+    const modal = document.getElementById('editModal');
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  // Close modal if clicking outside
+  document.getElementById('editModal').addEventListener('click', function(e) {
+    if (e.target === this) closeEdit();
+  });
+</script>
+
+{% endblock %}

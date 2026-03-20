@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}My Class — MACE{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Class: {{ class_code }}</h2>
+  <p>Students in your assigned class</p>
+</div>
+<div class="table-card">
+  <div class="table-responsive">
+    <table>
+      <thead>
+        <tr><th>Reg No</th><th>Name</th><th>Department</th><th>Email</th><th>Activity Points</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        {% for s in students %}
+        <tr>
+          <td>{{ s.reg_no }}</td>
+          <td><strong>{{ s.name }}</strong></td>
+          <td>{{ s.dept_name }}</td>
+          <td>{{ s.email }}</td>
+          <td><strong {% if s.total_points >= 100 %}style="color:#2e7d32"{% endif %}>{{ s.total_points }}</strong></td>
+          <td>
+            {% if s.total_points >= 100 %}
+              <span class="badge badge-success">Eligible</span>
+            {% else %}
+              <span class="badge badge-warning">{{ 100 - s.total_points }} pts needed</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted);">No students found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

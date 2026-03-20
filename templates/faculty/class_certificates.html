@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+{% block title %}Class Certificates — MACE{% endblock %}
+
+
+
+{% block content %}
+<style>
+.fbar { display:flex;align-items:center;flex-wrap:wrap;gap:8px;background:#fff;
+  border:1px solid #e2e6ed;border-radius:12px;padding:12px 16px;margin-bottom:20px;
+  box-shadow:0 1px 4px rgba(0,0,0,.05); }
+.fchip { padding:5px 13px;border-radius:20px;border:1.5px solid #e2e6ed;background:#fff;
+  font-size:12px;font-weight:600;color:#475569;cursor:pointer;text-decoration:none;
+  white-space:nowrap;transition:all .15s; }
+.fchip:hover { background:#f1f5f9; }
+.fchip.fc-active { background:var(--blue,#1B3A6B);color:#fff;border-color:var(--blue,#1B3A6B); }
+.fchip.fc-gold   { background:#C8902A;color:#fff;border-color:#C8902A; }
+.fchip.fc-green  { background:#2e7d32;color:#fff;border-color:#2e7d32; }
+.fchip.fc-red    { background:#c62828;color:#fff;border-color:#c62828; }
+
+.cert-table { background:#fff;border-radius:14px;box-shadow:0 1px 6px rgba(0,0,0,.07);overflow:hidden; }
+.cert-table table { width:100%;border-collapse:collapse;font-size:13px; }
+.cert-table thead tr { background:#f8fafc; }
+.cert-table th { padding:12px 16px;text-align:left;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em; }
+.cert-table td { padding:12px 16px;border-top:1px solid #f0f2f5;vertical-align:middle; }
+.cert-table tr:hover td { background:#fafbff; }
+
+.badge-status { font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap; }
+.bs-pending  { background:#fef3c7;color:#92400e; }
+.bs-approved { background:#dcfce7;color:#166534; }
+.bs-rejected { background:#fee2e2;color:#991b1b; }
+
+.btn-sm-app { background:#2e7d32;color:#fff;border:none;border-radius:6px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer; }
+.btn-sm-app:hover { background:#1b5e20; }
+.btn-sm-rej { background:#c62828;color:#fff;border:none;border-radius:6px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer; }
+.btn-sm-rej:hover { background:#7f0000; }
+.btn-sm-view { background:var(--blue,#1B3A6B);color:#fff;border:none;border-radius:6px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block; }
+
+/* Points modal */
+.pts-modal { display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.5);align-items:center;justify-content:center; }
+.pts-modal.open { display:flex; }
+.pts-box { background:#fff;border-radius:14px;padding:28px;width:340px;box-shadow:0 20px 60px rgba(0,0,0,.25); }
+</style>
+
+<div class="page-header">
+  <h2>Class Certificates</h2>
+  <p>Certificates from all students in class {{ class_code }}</p>
+</div>
+
+<!-- Filter -->
+<div class="fbar">
+  <span style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">Status</span>
+  <a href="{{ url_for('faculty_class_certificates', status='all') }}"
+     class="fchip {% if status_filter=='all' %}fc-active{% endif %}">All</a>
+  <a href="{{ url_for('faculty_class_certificates', status='pending') }}"
+     class="fchip {% if status_filter=='pending' %}fc-gold{% endif %}">⏳ Pending</a>
+  <a href="{{ url_for('faculty_class_certificates', status='approved') }}"
+     class="fchip {% if status_filter=='approved' %}fc-green{% endif %}">✅ Approved</a>
+  <a href="{{ url_for('faculty_class_certificates', status='rejected') }}"
+     class="fchip {% if status_filter=='rejected' %}fc-red{% endif %}">❌ Rejected</a>
+</div>
+
+{% if certificates %}
+<div class="cert-table">
+  <table>
+    <thead>
+      <tr>
+        <th>Student</th>
+        <th>Activity</th>
+        <th>Type</th>
+        <th>Event</th>
+        <th>Uploaded</th>
+        <th>Status</th>
+        <th>Points</th>
+        <th>File</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for cert in certificates %}
+      {% set is_self = cert.certificate_type == 'self_initiative' %}
+      <tr id="row-{{ cert.certificate_id }}">
+        <td>
+          <strong>{{ cert.student_name }}</strong>
+          <div style="font-size:11px;color:#94a3b8;">{{ cert.reg_no }} · {{ cert.semester }}</div>
+        </td>
+        <td>
+          <span style="background:#e3f2fd;color:#0d47a1;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;">
+            {{ cert.activity_category|replace('_',' ')|title if cert.activity_category else '—' }}
+          </span>
+        </td>
+        <td style="color:#64748b;font-size:12px;">{{ '📜 Self' if is_self else '🏆 Event' }}</td>
+        <td style="font-size:12px;color:#64748b;">{{ cert.event_name or '—' }}</td>
+        <td style="font-size:12px;color:#64748b;">{{ cert.upload_date.strftime('%d %b %Y') if cert.upload_date else '—' }}</td>
+        <td>
+          <span class="badge-status bs-{{ cert.status }}" id="badge-{{ cert.certificate_id }}">
+            {% if cert.status=='pending' %}⏳ Pending
+            {% elif cert.status=='approved' %}✅ Approved
+            {% else %}❌ Rejected{% endif %}
+          </span>
+        </td>
+        <td id="pts-{{ cert.certificate_id }}" style="font-weight:700;color:#059669;">
+          {% if cert.points_awarded %}+{{ cert.points_awarded }}{% else %}—{% endif %}
+        </td>
+        <td>
+          {% if cert.file_path %}
+          <a href="{{ url_for('serve_upload', filename=cert.file_path) }}" target="_blank"
+             style="color:var(--blue);font-size:12px;font-weight:600;text-decoration:none;">
+            <i class="fas fa-eye"></i> View
+          </a>
+          {% else %}—{% endif %}
+        </td>
+        <td id="actions-{{ cert.certificate_id }}">
+          {% if cert.status == 'pending' %}
+          <div style="display:flex;gap:6px;align-items:center;">
+            <a href="{{ url_for('faculty_view_student', reg_no=cert.reg_no) }}" class="btn-sm-view">
+              <i class="fas fa-user"></i> Student
+            </a>
+            {% if is_self %}
+              <button class="btn-sm-app" onclick="openPtsModal({{ cert.certificate_id }})">✅ Approve</button>
+            {% else %}
+              <button class="btn-sm-app" onclick="approveCert({{ cert.certificate_id }}, 0)">✅ Approve</button>
+            {% endif %}
+            <button class="btn-sm-rej" onclick="rejectCert({{ cert.certificate_id }})">❌ Reject</button>
+          </div>
+          {% else %}
+          <a href="{{ url_for('faculty_view_student', reg_no=cert.reg_no) }}" class="btn-sm-view">
+            <i class="fas fa-user"></i> Student
+          </a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div style="text-align:center;padding:60px;color:#94a3b8;">
+  <i class="fas fa-certificate" style="font-size:40px;opacity:.2;display:block;margin-bottom:12px;"></i>
+  <h4 style="color:#64748b;">No certificates found</h4>
+  <p style="font-size:13px;margin-top:6px;">Try changing the filter above.</p>
+</div>
+{% endif %}
+
+<!-- Points modal -->
+<div class="pts-modal" id="ptsModal">
+  <div class="pts-box">
+    <h3 style="margin:0 0 6px;font-size:16px;font-weight:700;color:#1a2340;">Approve Certificate</h3>
+    <p style="font-size:13px;color:#64748b;margin:0 0 18px;">Enter points to award for this self-initiative certificate.</p>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:6px;">Points to Award</label>
+      <input type="number" id="ptsInput" min="1" max="50" value="5"
+             style="width:100%;padding:10px 12px;border:2px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;">
+      <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Typical: Internship=20, Industrial Visit=15, NPTEL=5</div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="closePtsModal()"
+              style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button>
+      <button onclick="confirmApprove()"
+              style="flex:1;padding:10px;border:none;border-radius:8px;background:#2e7d32;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">✅ Approve</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let pendingCertId = null;
+
+function openPtsModal(certId) {
+  pendingCertId = certId;
+  document.getElementById('ptsModal').classList.add('open');
+}
+function closePtsModal() {
+  pendingCertId = null;
+  document.getElementById('ptsModal').classList.remove('open');
+}
+function confirmApprove() {
+  const pts = parseInt(document.getElementById('ptsInput').value) || 5;
+  closePtsModal();
+  approveCert(pendingCertId, pts);
+}
+
+function approveCert(certId, points) {
+  fetch(`/faculty/verify_certificate/${certId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ points: points })
+  }).then(() => {
+    updateRow(certId, 'approved', points);
+  });
+}
+
+function rejectCert(certId) {
+  fetch(`/faculty/reject_certificate/${certId}`, { method: 'POST' })
+    .then(() => updateRow(certId, 'rejected', 0));
+}
+
+function updateRow(certId, status, points) {
+  const badge   = document.getElementById('badge-'   + certId);
+  const actions = document.getElementById('actions-' + certId);
+  const ptsEl   = document.getElementById('pts-'     + certId);
+
+  if (badge) {
+    badge.className = 'badge-status bs-' + status;
+    badge.innerHTML = status === 'approved' ? '✅ Approved' : '❌ Rejected';
+  }
+  if (ptsEl && status === 'approved' && points > 0) {
+    ptsEl.innerHTML = `+${points}`;
+  }
+  if (actions) {
+    actions.innerHTML = `<span style="font-size:12px;color:#94a3b8;">${status === 'approved' ? 'Approved' : 'Rejected'}</span>`;
+  }
+}
+</script>
+{% endblock %}

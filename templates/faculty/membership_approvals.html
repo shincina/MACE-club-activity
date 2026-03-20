@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+{% block title %}Membership Approvals — MACE{% endblock %}
+
+{% block content %}
+<style>
+/* ── Filter bar ─────────────────────────────────────────────────── */
+.fbar {
+  display:flex; align-items:center; flex-wrap:wrap; gap:8px;
+  background:#fff; border:1px solid #e2e6ed; border-radius:12px;
+  padding:12px 16px; margin-bottom:20px;
+  box-shadow:0 1px 4px rgba(0,0,0,.05);
+}
+.fbar-label { font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; }
+.fbar-divider { width:1px; height:22px; background:#e2e6ed; margin:0 6px; }
+.fchip {
+  padding:5px 13px; border-radius:20px; border:1.5px solid #e2e6ed;
+  background:#fff; font-size:12px; font-weight:600; color:#475569;
+  cursor:pointer; text-decoration:none; white-space:nowrap; transition:all .15s;
+}
+.fchip:hover { background:#f1f5f9; }
+.fchip.fc-active { background:var(--blue,#1B3A6B); color:#fff; border-color:var(--blue,#1B3A6B); }
+.fchip.fc-gold   { background:#C8902A; color:#fff; border-color:#C8902A; }
+.fchip.fc-green  { background:#2e7d32; color:#fff; border-color:#2e7d32; }
+.fchip.fc-red    { background:#c62828; color:#fff; border-color:#c62828; }
+
+/* ── Section heading ─────────────────────────────────────────────── */
+.section-heading {
+  font-size:16px; font-weight:800; color:#1a2340;
+  margin:0 0 14px; padding-bottom:8px;
+  border-bottom:2px solid #e2e6ed;
+  display:flex; align-items:center; gap:8px;
+}
+.count-badge {
+  background:var(--blue,#1B3A6B); color:#fff;
+  font-size:11px; font-weight:700; padding:2px 9px;
+  border-radius:20px;
+}
+
+/* ── Table ───────────────────────────────────────────────────────── */
+.mem-table-wrap {
+  background:#fff; border-radius:14px;
+  box-shadow:0 2px 10px rgba(0,0,0,.06);
+  border:1px solid #e8ecf2; overflow:hidden;
+}
+.mem-table { width:100%; border-collapse:collapse; }
+.mem-table th {
+  background:#f8fafc; padding:11px 16px; text-align:left;
+  font-size:11px; font-weight:700; color:#94a3b8;
+  text-transform:uppercase; letter-spacing:.05em;
+  border-bottom:2px solid #e2e6ed;
+}
+.mem-table td {
+  padding:13px 16px; font-size:13px; color:#374151;
+  border-bottom:1px solid #f0f2f5; vertical-align:middle;
+}
+.mem-table tr:last-child td { border-bottom:none; }
+.mem-table tr:hover td     { background:#f8fafc; }
+
+/* student info cell */
+.stu-name  { font-weight:700; color:#1a2340; }
+.stu-sub   { font-size:11px; color:#94a3b8; margin-top:2px; }
+
+/* badges */
+.role-badge {
+  display:inline-block; font-size:10px; font-weight:700;
+  padding:2px 9px; border-radius:20px;
+  background:#e8f0fe; color:#1557b0;
+}
+.role-badge.coordinator { background:#fef3c7; color:#92400e; }
+
+.club-badge {
+  display:inline-block; font-size:10px; font-weight:700;
+  padding:2px 9px; border-radius:20px;
+  background:#f0fdf4; color:#166534;
+}
+
+.status-pending  { color:#92400e; font-weight:700; font-size:12px; }
+.status-approved { color:#166534; font-weight:700; font-size:12px; }
+.status-rejected { color:#991b1b; font-weight:700; font-size:12px; }
+
+/* action buttons */
+.act-btns { display:flex; gap:6px; }
+.btn-app {
+  background:#2e7d32; color:#fff; border:none; border-radius:6px;
+  padding:5px 12px; font-size:11px; font-weight:700; cursor:pointer;
+  transition:background .15s;
+}
+.btn-app:hover { background:#1b5e20; }
+.btn-rej {
+  background:#c62828; color:#fff; border:none; border-radius:6px;
+  padding:5px 12px; font-size:11px; font-weight:700; cursor:pointer;
+  transition:background .15s;
+}
+.btn-rej:hover { background:#7f0000; }
+
+/* empty state */
+.empty-state {
+  text-align:center; padding:56px 20px; color:#94a3b8;
+}
+.empty-state i { font-size:40px; opacity:.2; display:block; margin-bottom:12px; }
+.empty-state p { font-size:14px; color:#64748b; }
+</style>
+
+<div class="page-header">
+  <h2>Membership Approvals</h2>
+  <p>Review and manage student membership requests for your clubs</p>
+</div>
+
+<!-- ── FILTER BAR ─────────────────────────────────────────────────── -->
+<div class="fbar">
+  <span class="fbar-label">Club</span>
+  <a href="{{ url_for('faculty_membership_approvals', status=status_filter) }}"
+     class="fchip {% if club_filter=='all' %}fc-active{% endif %}">All Clubs</a>
+  {% for club in my_clubs %}
+  <a href="{{ url_for('faculty_membership_approvals', club=club.club_id, status=status_filter) }}"
+     class="fchip {% if club_filter==club.club_id|string %}fc-active{% endif %}">
+    {{ club.club_name }}
+  </a>
+  {% endfor %}
+
+  <div class="fbar-divider"></div>
+  <span class="fbar-label">Status</span>
+
+  <a href="{{ url_for('faculty_membership_approvals', club=club_filter) }}"
+     class="fchip {% if status_filter=='all' %}fc-active{% endif %}">All</a>
+  <a href="{{ url_for('faculty_membership_approvals', club=club_filter, status='pending') }}"
+     class="fchip {% if status_filter=='pending' %}fc-gold{% endif %}">⏳ Pending</a>
+  <a href="{{ url_for('faculty_membership_approvals', club=club_filter, status='approved') }}"
+     class="fchip {% if status_filter=='approved' %}fc-green{% endif %}">✅ Approved</a>
+  <a href="{{ url_for('faculty_membership_approvals', club=club_filter, status='rejected') }}"
+     class="fchip {% if status_filter=='rejected' %}fc-red{% endif %}">❌ Rejected</a>
+</div>
+
+<!-- ── TABLE ──────────────────────────────────────────────────────── -->
+<div class="section-heading">
+  <i class="fas fa-users"></i> Memberships
+  <span class="count-badge">{{ memberships | length }}</span>
+</div>
+
+{% if memberships %}
+<div class="mem-table-wrap">
+  <table class="mem-table">
+    <thead>
+      <tr>
+        <th>Student</th>
+        <th>Club</th>
+        <th>Role</th>
+        <th>Requested On</th>
+        <th>Status</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in memberships %}
+      <tr id="memrow-{{ m.membership_id }}">
+
+        <td>
+          <div class="stu-name">{{ m.student_name }}</div>
+          <div class="stu-sub">{{ m.reg_no }} &bull; {{ m.dept_name or '—' }}</div>
+        </td>
+
+        <td><span class="club-badge">{{ m.club_name }}</span></td>
+
+        <td>
+          <span class="role-badge {% if m.role == 'coordinator' %}coordinator{% endif %}">
+            {{ m.role | title }}
+          </span>
+        </td>
+
+        <td style="font-size:12px;color:#64748b;">
+          {{ m.join_date.strftime('%d %b %Y') if m.join_date else '—' }}
+        </td>
+
+        <td id="memstatus-{{ m.membership_id }}">
+          {% if m.status == 'pending' %}
+            <span class="status-pending">⏳ Pending</span>
+          {% elif m.status == 'approved' %}
+            <span class="status-approved">✅ Approved</span>
+          {% else %}
+            <span class="status-rejected">❌ Rejected</span>
+          {% endif %}
+        </td>
+
+        <td id="memact-{{ m.membership_id }}">
+          {% if m.status == 'pending' %}
+          <div class="act-btns">
+            <button class="btn-app" onclick="doMemberAction({{ m.membership_id }}, {{ m.club_id }}, '{{ m.student_id }}', 'approve')">
+              <i class="fas fa-check"></i> Approve
+            </button>
+            <button class="btn-rej" onclick="doMemberAction({{ m.membership_id }}, {{ m.club_id }}, '{{ m.student_id }}', 'reject')">
+              <i class="fas fa-times"></i> Reject
+            </button>
+          </div>
+          {% else %}
+            <span style="font-size:12px;color:#94a3b8;">—</span>
+          {% endif %}
+        </td>
+
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% else %}
+<div class="empty-state">
+  <i class="fas fa-users"></i>
+  <p>No membership requests found for the selected filters.</p>
+</div>
+{% endif %}
+
+<script>
+function doMemberAction(membershipId, clubId, studentId, action) {
+  const url = action === 'approve'
+    ? `/faculty/club/restore_member/${clubId}/${studentId}`
+    : `/faculty/club/remove_member/${clubId}/${studentId}`;
+
+  fetch(url, { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) return;
+
+      // Update status cell
+      const statusCell = document.getElementById('memstatus-' + membershipId);
+      if (statusCell) {
+        statusCell.innerHTML = action === 'approve'
+          ? '<span class="status-approved">✅ Approved</span>'
+          : '<span class="status-rejected">❌ Rejected</span>';
+      }
+
+      // Remove action buttons
+      const actCell = document.getElementById('memact-' + membershipId);
+      if (actCell) {
+        actCell.innerHTML = '<span style="font-size:12px;color:#94a3b8;">—</span>';
+      }
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,7 @@
+flask
+flask-mysqldb
+flask-login
+flask-session
+werkzeug
+pillow
+

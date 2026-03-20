@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+{% block title %}My Events — MACE{% endblock %}
+
+{% block sidebar %}
+<div class="menu-section">Main</div>
+<a href="{{ url_for('student_dashboard') }}"><i class="fas fa-home"></i> Dashboard</a>
+<div class="menu-section">Clubs</div>
+<a href="{{ url_for('student_clubs') }}"><i class="fas fa-users"></i> View Clubs</a>
+<a href="{{ url_for('my_clubs') }}"><i class="fas fa-star"></i> My Clubs</a>
+<div class="menu-section">Events</div>
+<a href="{{ url_for('student_events') }}"><i class="fas fa-calendar-alt"></i> Event Timeline</a>
+<a href="{{ url_for('my_events') }}" class="active"><i class="fas fa-list-check"></i> My Events</a>
+<div class="menu-section">More</div>
+<a href="{{ url_for('upload_certificate') }}"><i class="fas fa-certificate"></i> Upload Certificate</a>
+<a href="{{ url_for('student_activity_points') }}"><i class="fas fa-trophy"></i> Activity Points</a>
+<a href="{{ url_for('student_announcements') }}"><i class="fas fa-bullhorn"></i> Announcements</a>
+<a href="{{ url_for('student_profile') }}"><i class="fas fa-user"></i> Profile</a>
+{% endblock %}
+
+{% block content %}
+<style>
+  .filter-tabs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    border-bottom: 2px solid #e5e7eb;
+  }
+
+  .filter-tab {
+    padding: 0.75rem 1.5rem;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #6b7280;
+    transition: all 0.3s;
+  }
+
+  .filter-tab.active {
+    color: #6366f1;
+    border-bottom-color: #6366f1;
+  }
+
+  .filter-tab.archived-tab {
+    color: #ef4444 !important;
+  }
+
+  .events-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+  }
+
+  .event-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    transition: all 0.3s;
+    position: relative;
+  }
+
+  .event-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+  }
+
+  .event-card.archived {
+    opacity: 0.65;
+    background: #fef2f2;
+    border: 2px solid #fecaca;
+  }
+
+  .event-card.archived:hover {
+    transform: none;
+  }
+
+  .archived-badge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: #fecaca;
+    color: #991b1b;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.75rem;
+    z-index: 10;
+  }
+
+  .event-poster {
+    width: 100%;
+    height: 220px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 4rem;
+  }
+
+  .event-card.archived .event-poster {
+    background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+  }
+
+  .event-info {
+    padding: 1.5rem;
+  }
+
+  .event-title-card {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 0.75rem;
+  }
+
+  .event-club-badge {
+    display: inline-block;
+    padding: 0.35rem 0.85rem;
+    background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
+    color: #1e40af;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+
+  .event-quick-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    font-size: 0.9rem;
+    color: #6b7280;
+    margin-bottom: 1.25rem;
+  }
+
+  .event-quick-info span {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .event-quick-info i {
+    width: 18px;
+    color: #6366f1;
+  }
+
+  .event-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+    border-top: 1.5px solid #e5e7eb;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .points-badge {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #92400e;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+
+  .status-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .badge-present  { background:#dcfce7; color:#166534; padding:4px 10px; border-radius:20px; font-size:0.78rem; font-weight:700; }
+  .badge-absent   { background:#fee2e2; color:#991b1b; padding:4px 10px; border-radius:20px; font-size:0.78rem; font-weight:700; }
+  .badge-paid     { background:#dcfce7; color:#166534; padding:4px 10px; border-radius:20px; font-size:0.78rem; font-weight:700; }
+  .badge-notpaid  { background:#fef3c7; color:#92400e; padding:4px 10px; border-radius:20px; font-size:0.78rem; font-weight:700; }
+  .badge-ended    { background:#f3f4f6; color:#6b7280; padding:4px 10px; border-radius:20px; font-size:0.78rem; font-weight:700; }
+</style>
+
+<div class="page-header">
+  <h2>My Events</h2>
+  <p>All events you have registered for</p>
+</div>
+
+<!-- Filter Tabs -->
+<div class="filter-tabs">
+  <button class="filter-tab active" onclick="filterEvents('all', this)">All</button>
+  <button class="filter-tab" onclick="filterEvents('upcoming', this)">Upcoming</button>
+  <button class="filter-tab archived-tab" onclick="filterEvents('archived', this)">Past</button>
+</div>
+
+{% if my_events %}
+<div class="events-gallery">
+  {% for e in my_events %}
+
+  {% set is_past = e.display_status == 'completed' %}
+
+  <div class="event-card {% if is_past %}archived{% endif %}"
+       data-status="{% if is_past %}archived{% else %}upcoming{% endif %}">
+
+    {% if is_past %}
+    <div class="archived-badge">COMPLETED</div>
+    {% endif %}
+
+    <div class="event-poster">
+      <i class="fas fa-calendar-check"></i>
+    </div>
+
+    <div class="event-info">
+      <div class="event-title-card">{{ e.event_name }}</div>
+      <div class="event-club-badge">{{ e.club_name }}</div>
+
+      <div class="event-quick-info">
+        <span><i class="fas fa-calendar"></i> {{ e.event_date }}</span>
+        <span><i class="fas fa-map-marker-alt"></i> {{ e.location or 'TBD' }}</span>
+      </div>
+
+      <div class="event-card-footer">
+        <div class="points-badge">⭐ {{ e.points or 0 }} pts</div>
+        <div class="status-badges">
+          <!-- Attendance -->
+          {% if e.attendance_status == 'present' %}
+            <span class="badge-present"><i class="fas fa-check"></i> Present</span>
+          {% else %}
+            <span class="badge-absent"><i class="fas fa-times"></i> Absent</span>
+          {% endif %}
+          <!-- Payment -->
+          {% if e.payment_status == 'paid' %}
+            <span class="badge-paid"><i class="fas fa-check-circle"></i> Paid</span>
+          {% else %}
+            <span class="badge-notpaid"><i class="fas fa-clock"></i> Not Paid</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="empty-state" style="text-align:center; padding:60px 20px;">
+  <i class="fas fa-calendar-times" style="font-size:48px; opacity:0.2; display:block; margin-bottom:16px;"></i>
+  <h4>No registered events yet</h4>
+  <p style="color:var(--muted); margin-top:8px;">
+    <a href="{{ url_for('student_events') }}" class="btn btn-primary" style="margin-top:12px; display:inline-block;">
+      Browse Events
+    </a>
+  </p>
+</div>
+{% endif %}
+
+<script>
+  function filterEvents(filter, btn) {
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.event-card').forEach(card => {
+      const status = card.getAttribute('data-status');
+      card.style.display = (filter === 'all' || filter === status) ? 'block' : 'none';
+    });
+  }
+</script>
+
+{% endblock %}

@@ -1,0 +1,328 @@
+{% extends 'base.html' %}
+{% block title %}Club Events — MACE{% endblock %}
+
+{% block content %}
+<style>
+/* ── Filter bar ─────────────────────────────────────────────────── */
+.fbar {
+  display:flex; align-items:center; flex-wrap:wrap; gap:8px;
+  background:#fff; border:1px solid #e2e6ed; border-radius:12px;
+  padding:12px 16px; margin-bottom:20px;
+  box-shadow:0 1px 4px rgba(0,0,0,.05);
+}
+.fbar-label { font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; }
+.fbar-divider { width:1px; height:22px; background:#e2e6ed; margin:0 6px; }
+.fchip {
+  padding:5px 13px; border-radius:20px; border:1.5px solid #e2e6ed;
+  background:#fff; font-size:12px; font-weight:600; color:#475569;
+  cursor:pointer; text-decoration:none; white-space:nowrap; transition:all .15s;
+}
+.fchip:hover { background:#f1f5f9; }
+.fchip.fc-active  { background:var(--blue,#1B3A6B); color:#fff; border-color:var(--blue,#1B3A6B); }
+.fchip.fc-gold    { background:#C8902A; color:#fff; border-color:#C8902A; }
+.fchip.fc-green   { background:#2e7d32; color:#fff; border-color:#2e7d32; }
+.fchip.fc-red     { background:#c62828; color:#fff; border-color:#c62828; }
+.fchip.fc-past    { background:#374151; color:#fff; border-color:#374151; }
+
+/* ── Calendar ───────────────────────────────────────────────────── */
+.cal-nav {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:16px;
+}
+.cal-nav h2 { font-size:20px; font-weight:800; color:#1a2340; }
+.cal-nav-btn {
+  background:#fff; border:1.5px solid #e2e6ed; border-radius:8px;
+  padding:7px 16px; font-size:14px; font-weight:700; cursor:pointer;
+  color:var(--blue,#1B3A6B); transition:all .15s;
+}
+.cal-nav-btn:hover { background:#f1f5f9; }
+
+.cal-grid {
+  display:grid; grid-template-columns:repeat(7,1fr);
+  border:1px solid #e2e6ed; border-radius:14px; overflow:hidden;
+  background:#fff; box-shadow:0 2px 10px rgba(0,0,0,.06);
+}
+.cal-dow {
+  padding:10px 6px; text-align:center;
+  font-size:11px; font-weight:700; color:#94a3b8;
+  text-transform:uppercase; letter-spacing:.06em;
+  background:#f8fafc; border-bottom:2px solid #e2e6ed;
+}
+.cal-cell {
+  min-height:110px; padding:6px;
+  border-right:1px solid #f0f2f5; border-bottom:1px solid #f0f2f5;
+  position:relative; vertical-align:top; transition:background .15s;
+}
+.cal-cell:nth-child(7n) { border-right:none; }
+.cal-cell.other-month   { background:#fafbfc; }
+.cal-cell.today         { background:#eff6ff; }
+.cal-cell.today .cal-date { color:var(--blue,#1B3A6B); font-weight:800; }
+
+.cal-date {
+  font-size:12px; font-weight:600; color:#64748b;
+  margin-bottom:4px; display:block;
+}
+.cal-date-today {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:22px; height:22px; border-radius:50%;
+  background:var(--blue,#1B3A6B); color:#fff;
+  font-size:11px; font-weight:800;
+}
+.cal-event-pill {
+  display:block; padding:3px 7px; border-radius:6px; margin-bottom:3px;
+  font-size:10px; font-weight:600; cursor:pointer; overflow:hidden;
+  white-space:nowrap; text-overflow:ellipsis; transition:opacity .15s;
+  border:none; width:100%; text-align:left;
+}
+.cal-event-pill:hover { opacity:.8; }
+.pill-pending  { background:#fef3c7; color:#92400e; }
+.pill-approved { background:#dcfce7; color:#166534; }
+.pill-rejected { background:#fee2e2; color:#991b1b; }
+.pill-past     { background:#e0e7ff; color:#3730a3; }
+.cal-more {
+  font-size:10px; color:#94a3b8; font-weight:600; cursor:pointer; padding:2px 4px;
+}
+.cal-more:hover { color:var(--blue,#1B3A6B); }
+
+/* ── Detail modal ───────────────────────────────────────────────── */
+.modal-overlay {
+  display:none; position:fixed; inset:0; z-index:99999;
+  background:rgba(10,15,40,.75); backdrop-filter:blur(4px);
+  align-items:center; justify-content:center; padding:20px;
+}
+.modal-overlay.open { display:flex; animation:mfade .2s ease; }
+@keyframes mfade { from{opacity:0} to{opacity:1} }
+.modal-box {
+  background:#fff; border-radius:20px; width:100%; max-width:680px;
+  max-height:90vh; overflow-y:auto;
+  box-shadow:0 24px 80px rgba(0,0,0,.4);
+  animation:mup .25s ease;
+}
+@keyframes mup { from{transform:translateY(28px);opacity:0} to{transform:translateY(0);opacity:1} }
+.modal-head {
+  height:200px; display:flex; align-items:center; justify-content:center;
+  font-size:5rem; border-radius:20px 20px 0 0; position:relative;
+  background:linear-gradient(135deg,#1B3A6B,#2a52a0);
+}
+.modal-head::after { content:''; position:absolute; inset:0; background:rgba(0,0,0,.18); border-radius:20px 20px 0 0; }
+.modal-x {
+  position:absolute; top:14px; right:14px; z-index:10;
+  background:rgba(0,0,0,.35); border:none; border-radius:50%;
+  width:34px; height:34px; color:#fff; font-size:18px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
+.modal-x:hover { background:rgba(0,0,0,.6); }
+.modal-body-content { padding:26px 30px 30px; }
+.modal-title { font-size:22px; font-weight:800; color:#1a2340; margin-bottom:6px; }
+.modal-sub   { font-size:13px; color:#64748b; margin-bottom:20px; }
+.modal-meta-grid {
+  display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:20px;
+}
+.mmeta {
+  background:#f8fafc; border-radius:10px; padding:12px 14px;
+  display:flex; align-items:center; gap:10px; font-size:13px;
+}
+.mmeta i { color:#6366f1; width:18px; }
+.modal-desc {
+  background:#f8fafc; border-radius:10px; padding:14px 16px;
+  font-size:13px; color:#4b5563; line-height:1.7;
+  border-left:4px solid var(--blue,#1B3A6B); margin-bottom:20px;
+}
+.modal-actions { display:flex; gap:10px; }
+.mbtn-close {
+  flex:1; padding:11px; background:#f1f5f9; color:#374151; border:none;
+  border-radius:10px; font-size:14px; font-weight:700; cursor:pointer;
+}
+</style>
+
+<script>
+const ALL_EVENTS = {{ events | tojson }};
+</script>
+
+<div class="page-header">
+  <h2>Club Events</h2>
+  <p>Calendar view of all events from your clubs</p>
+</div>
+
+<!-- ── FILTER BAR ─────────────────────────────────────────────────── -->
+<div class="fbar">
+  <span class="fbar-label">Club</span>
+  <a href="{{ url_for('faculty_events', status=status_filter) }}"
+     class="fchip {% if club_filter=='all' %}fc-active{% endif %}">All Clubs</a>
+  {% for club in my_clubs %}
+  <a href="{{ url_for('faculty_events', club=club.club_id, status=status_filter) }}"
+     class="fchip {% if club_filter==club.club_id|string %}fc-active{% endif %}">
+    {{ club.club_name }}
+  </a>
+  {% endfor %}
+
+  <div class="fbar-divider"></div>
+  <span class="fbar-label">Status</span>
+
+  <a href="{{ url_for('faculty_events', club=club_filter) }}"
+     class="fchip {% if status_filter=='all' %}fc-active{% endif %}">All</a>
+  <a href="{{ url_for('faculty_events', club=club_filter, status='pending') }}"
+     class="fchip {% if status_filter=='pending' %}fc-gold{% endif %}">⏳ Pending</a>
+  <a href="{{ url_for('faculty_events', club=club_filter, status='approved') }}"
+     class="fchip {% if status_filter=='approved' %}fc-green{% endif %}">✅ Approved</a>
+  <a href="{{ url_for('faculty_events', club=club_filter, status='rejected') }}"
+     class="fchip {% if status_filter=='rejected' %}fc-red{% endif %}">❌ Rejected</a>
+  <a href="{{ url_for('faculty_events', club=club_filter, status='completed') }}"
+     class="fchip {% if status_filter=='completed' %}fc-past{% endif %}">🏁 Past</a>
+</div>
+
+<!-- ── CALENDAR ───────────────────────────────────────────────────── -->
+<div class="cal-nav">
+  <button class="cal-nav-btn" onclick="changeMonth(-1)">&#8592; Prev</button>
+  <h2 id="calTitle"></h2>
+  <button class="cal-nav-btn" onclick="changeMonth(1)">Next &#8594;</button>
+</div>
+<div class="cal-grid" id="calGrid">
+  <div class="cal-dow">Sun</div>
+  <div class="cal-dow">Mon</div>
+  <div class="cal-dow">Tue</div>
+  <div class="cal-dow">Wed</div>
+  <div class="cal-dow">Thu</div>
+  <div class="cal-dow">Fri</div>
+  <div class="cal-dow">Sat</div>
+</div>
+
+<!-- ── DETAIL MODAL ───────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span style="position:relative;z-index:1;filter:drop-shadow(0 4px 10px rgba(0,0,0,.4));">📅</span>
+      <button class="modal-x" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body-content">
+      <div class="modal-title" id="mTitle"></div>
+      <div class="modal-sub"   id="mSub"></div>
+      <div class="modal-meta-grid" id="mMeta"></div>
+      <div class="modal-desc"  id="mDesc"></div>
+      <div class="modal-actions" id="mActions"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentYear  = new Date().getFullYear();
+let currentMonth = new Date().getMonth();
+const today = new Date();
+const MONTH_NAMES = ['January','February','March','April','May','June',
+                     'July','August','September','October','November','December'];
+
+function buildCalendar() {
+  document.getElementById('calTitle').textContent = MONTH_NAMES[currentMonth] + ' ' + currentYear;
+  const grid = document.getElementById('calGrid');
+  while (grid.children.length > 7) grid.removeChild(grid.lastChild);
+
+  const firstDay   = new Date(currentYear, currentMonth, 1).getDay();
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const daysInPrev  = new Date(currentYear, currentMonth, 0).getDate();
+
+  const eventsByDate = {};
+  ALL_EVENTS.forEach(ev => {
+    const d = ev.event_date ? ev.event_date.substring(0,10) : null;
+    if (!d) return;
+    if (!eventsByDate[d]) eventsByDate[d] = [];
+    eventsByDate[d].push(ev);
+  });
+
+  const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+
+  for (let i = 0; i < totalCells; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cal-cell';
+
+    let dayNum, dateStr, isOther = false;
+
+    if (i < firstDay) {
+      dayNum  = daysInPrev - firstDay + 1 + i;
+      dateStr = `${currentYear}-${String(currentMonth).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+      isOther = true;
+    } else if (i >= firstDay + daysInMonth) {
+      dayNum  = i - firstDay - daysInMonth + 1;
+      const nm = currentMonth + 2 > 12 ? 1 : currentMonth + 2;
+      const ny = currentMonth + 2 > 12 ? currentYear + 1 : currentYear;
+      dateStr = `${ny}-${String(nm).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+      isOther = true;
+    } else {
+      dayNum  = i - firstDay + 1;
+      dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+    }
+
+    if (isOther) cell.classList.add('other-month');
+    const isToday = (!isOther && dayNum === today.getDate() &&
+                     currentMonth === today.getMonth() &&
+                     currentYear  === today.getFullYear());
+    if (isToday) cell.classList.add('today');
+
+    const dateEl = document.createElement('span');
+    dateEl.className = 'cal-date';
+    dateEl.innerHTML = isToday
+      ? `<span class="cal-date-today">${dayNum}</span>`
+      : dayNum;
+    cell.appendChild(dateEl);
+
+    const dayEvents = eventsByDate[dateStr] || [];
+    dayEvents.slice(0,2).forEach(ev => {
+      const pill = document.createElement('button');
+      pill.className = 'cal-event-pill pill-' +
+        (ev.status==='approved' ? 'approved' : ev.status==='rejected' ? 'rejected' :
+         ev.status==='pending'  ? 'pending'  : 'past');
+      pill.textContent = ev.event_name;
+      pill.onclick = () => openModal(ev.event_id);
+      cell.appendChild(pill);
+    });
+
+    if (dayEvents.length > 2) {
+      const more = document.createElement('span');
+      more.className = 'cal-more';
+      more.textContent = `+${dayEvents.length - 2} more`;
+      more.onclick = () => openModal(dayEvents[2].event_id);
+      cell.appendChild(more);
+    }
+
+    grid.appendChild(cell);
+  }
+}
+
+function changeMonth(dir) {
+  currentMonth += dir;
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  if (currentMonth < 0)  { currentMonth = 11; currentYear--; }
+  buildCalendar();
+}
+
+function openModal(eventId) {
+  const ev = ALL_EVENTS.find(e => e.event_id === eventId);
+  if (!ev) return;
+  document.getElementById('mTitle').textContent = ev.event_name;
+  document.getElementById('mSub').innerHTML =
+    `<span style="background:#e8f0fe;color:#1557b0;font-size:11px;font-weight:700;
+      padding:3px 10px;border-radius:20px;">${ev.club_name}</span>`;
+  document.getElementById('mMeta').innerHTML = `
+    <div class="mmeta"><i class="fas fa-calendar"></i> ${ev.event_date || 'TBD'}</div>
+    <div class="mmeta"><i class="fas fa-clock"></i> ${ev.event_time || 'TBD'}</div>
+    <div class="mmeta"><i class="fas fa-map-marker-alt"></i> ${ev.location || 'TBD'}</div>
+    <div class="mmeta"><i class="fas fa-users"></i> ${ev.participant_count}/${ev.max_participants} registered</div>
+    <div class="mmeta"><i class="fas fa-trophy"></i> ${ev.points || 0} Activity Points</div>
+    <div class="mmeta"><i class="fas fa-info-circle"></i> Status: ${ev.status}</div>
+  `;
+  document.getElementById('mDesc').innerHTML =
+    `<strong>About</strong><br>${ev.description || 'No description provided.'}`;
+  document.getElementById('mActions').innerHTML =
+    `<button class="mbtn-close" style="flex:2" onclick="closeModal()">Close</button>`;
+  document.getElementById('modalOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); });
+buildCalendar();
+</script>
+{% endblock %}

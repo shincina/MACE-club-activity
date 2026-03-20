@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+{% block title %}My Profile — MACE{% endblock %}
+
+{% block content %}
+<style>
+.profile-grid { display:grid;grid-template-columns:1fr 2fr;gap:22px;align-items:start; }
+.form-card { background:#fff;border-radius:14px;padding:24px;box-shadow:0 1px 6px rgba(0,0,0,.07); }
+.form-card h3 { font-size:14px;font-weight:700;color:var(--blue);margin:0 0 18px;padding-bottom:12px;border-bottom:1px solid #f0f2f5; }
+.detail-row { display:flex;padding:11px 0;border-bottom:1px solid #f8fafc;font-size:14px; }
+.detail-label { width:40%;color:#94a3b8;font-weight:500; }
+.detail-value { flex:1;color:#1a2340;font-weight:600; }
+
+/* Edit modal */
+.edit-modal { display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px; }
+.edit-modal.open { display:flex; }
+.edit-box { background:#fff;border-radius:16px;padding:32px;width:100%;max-width:460px;
+  box-shadow:0 20px 60px rgba(0,0,0,.2);position:relative;max-height:90vh;overflow-y:auto; }
+.edit-field { margin-bottom:16px; }
+.edit-field label { font-size:13px;font-weight:600;color:#444;display:block;margin-bottom:6px; }
+.edit-field input, .edit-field select {
+  width:100%;padding:10px 14px;border:2px solid #ddd;border-radius:8px;
+  font-size:14px;box-sizing:border-box;transition:border .2s;
+}
+.edit-field input:focus, .edit-field select:focus { outline:none;border-color:var(--blue); }
+.edit-field input:disabled { background:#f5f5f5;color:#aaa; }
+.edit-note { font-size:11px;color:#aaa;margin-top:3px; }
+</style>
+
+<div class="page-header">
+  <h2>My Profile</h2>
+</div>
+
+<!-- Edit modal -->
+<div class="edit-modal" id="editModal">
+  <div class="edit-box">
+    <button onclick="closeEdit()" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:22px;cursor:pointer;color:#999;">&times;</button>
+    <h3 style="margin:0 0 6px;font-size:18px;font-weight:700;color:var(--blue);">
+      <i class="fas fa-edit" style="color:var(--gold);margin-right:8px;"></i>Edit Profile
+    </h3>
+    <p style="font-size:13px;color:#64748b;margin:0 0 24px;">Update your contact information.</p>
+    <form method="POST" action="{{ url_for('faculty_update_profile') }}">
+      <div class="edit-field">
+        <label>Full Name</label>
+        <input type="text" name="faculty_name" value="{{ faculty.faculty_name }}" required>
+      </div>
+      <div class="edit-field">
+        <label>Email <span class="edit-note">(cannot be changed)</span></label>
+        <input type="email" value="{{ faculty.email }}" disabled>
+      </div>
+      <div class="edit-field">
+        <label>Department</label>
+        <input type="text" value="{{ faculty.department or '—' }}" disabled>
+        <div class="edit-note">Contact admin to change department</div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:8px;">
+        <button type="button" onclick="closeEdit()"
+                style="flex:1;padding:11px;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer;color:#666;">
+          Cancel
+        </button>
+        <button type="submit"
+                style="flex:1;padding:11px;border:none;border-radius:8px;background:var(--blue);color:#fff;font-size:14px;font-weight:700;cursor:pointer;">
+          <i class="fas fa-save"></i> Save
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="profile-grid">
+
+  <!-- Avatar card -->
+  <div class="form-card" style="text-align:center;">
+    <div style="width:90px;height:90px;border-radius:50%;background:var(--blue);
+                display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+      <span style="font-size:36px;font-weight:800;color:#fff;">{{ faculty.faculty_name[0]|upper }}</span>
+    </div>
+    <h3 style="border:none;margin-bottom:4px;font-size:18px;">{{ faculty.faculty_name }}</h3>
+    <p style="color:#94a3b8;font-size:13px;">{{ faculty.department or '—' }}</p>
+    {% if faculty.class_incharge %}
+    <span style="background:#e8f0fe;color:#1557b0;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-top:6px;">
+      Class Incharge: {{ faculty.class_incharge }}
+    </span>
+    {% endif %}
+    <div style="margin-top:20px;">
+      <button onclick="openEdit()"
+              style="width:100%;background:var(--blue);color:#fff;border:none;border-radius:8px;
+                     padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer;">
+        <i class="fas fa-edit"></i> Edit Profile
+      </button>
+    </div>
+  </div>
+
+  <!-- Details card -->
+  <div class="form-card">
+    <h3><i class="fas fa-id-card" style="color:var(--gold);margin-right:8px;"></i>Faculty Details</h3>
+    <div class="detail-row">
+      <span class="detail-label">Full Name</span>
+      <span class="detail-value">{{ faculty.faculty_name }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Email</span>
+      <span class="detail-value">{{ faculty.email }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Department</span>
+      <span class="detail-value">{{ faculty.department or '—' }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Role</span>
+      <span class="detail-value" style="text-transform:capitalize;">{{ faculty.role or 'faculty' }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Class Incharge</span>
+      <span class="detail-value">
+        {% if faculty.class_incharge %}
+          <span style="background:#dcfce7;color:#166534;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;">
+            {{ faculty.class_incharge }}
+          </span>
+        {% else %}
+          <span style="color:#94a3b8;">Not assigned</span>
+        {% endif %}
+      </span>
+    </div>
+    <div class="detail-row" style="border:none;">
+      <span class="detail-label">Club Incharge</span>
+      <span class="detail-value">
+        {% if session.get('has_club') %}
+          <span style="background:#e8f0fe;color:#1557b0;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;">
+            Assigned
+          </span>
+        {% else %}
+          <span style="color:#94a3b8;">Not assigned</span>
+        {% endif %}
+      </span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function openEdit()  { document.getElementById('editModal').classList.add('open'); document.body.style.overflow='hidden'; }
+function closeEdit() { document.getElementById('editModal').classList.remove('open'); document.body.style.overflow=''; }
+document.getElementById('editModal').addEventListener('click', e => { if(e.target===document.getElementById('editModal')) closeEdit(); });
+</script>
+{% endblock %}

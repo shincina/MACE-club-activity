@@ -1,0 +1,29 @@
+/* Local Font Awesome placeholder - include your own icon font if needed. */
+.fas { font-style: normal; }
+.fa-university:before { content: "\f19c"; }
+.fa-user-circle:before { content: "\f2bd"; }
+.fa-sign-out-alt:before { content: "\f2f5"; }
+.fa-home:before { content: "\f015"; }
+.fa-users:before { content: "\f0c0"; }
+.fa-star:before { content: "\f005"; }
+.fa-calendar-alt:before { content: "\f073"; }
+.fa-list-check:before { content: "\f0ae"; }
+.fa-calendar:before { content: "\f133"; }
+.fa-clock:before { content: "\f017"; }
+.fa-map-marker-alt:before { content: "\f3c5"; }
+.fa-lock:before { content: "\f023"; }
+.fa-eye:before { content: "\f06e"; }
+.fa-eye-slash:before { content: "\f070"; }
+.fa-bullhorn:before { content: "\f0a1"; }
+.fa-certificate:before { content: "\f0a3"; }
+.fa-trophy:before { content: "\f091"; }
+.fa-envelope:before { content: "\f0e0"; }
+.fa-tag:before { content: "\f02b"; }
+.fa-check:before { content: "\f00c"; }
+.fa-plus:before { content: "\f067"; }
+.fa-users:before { content: "\f0c0"; }
+.fa-spinner:before { content: "\f110"; }
+.fa-check-circle:before { content: "\f058"; }
+.fa-exclamation-circle:before { content: "\f06a"; }
+/* Fallback style for icon pseudo elements */
+[class^="fa-"]:before { font-family: sans-serif; }
