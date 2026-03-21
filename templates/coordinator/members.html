@@ -1,41 +1,445 @@
 {% extends 'base.html' %}
-{% block title %}Members — MACE{% endblock %}
-{% block sidebar %}
-<div class="menu-section">Coordinator</div>
-<a href="{{ url_for('coordinator_dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-<a href="{{ url_for('create_event') }}"><i class="fas fa-plus-circle"></i> Create Event</a>
-<a href="{{ url_for('coordinator_members') }}" class="active"><i class="fas fa-users"></i> Members</a>
-<a href="{{ url_for('post_announcement') }}"><i class="fas fa-bullhorn"></i> Post Announcement</a>
-{% endblock %}
+{% block title %}Club Members — MACE{% endblock %}
+
 {% block content %}
-<div class="page-header"><h2>Club Members</h2><p>All approved members in your clubs</p></div>
-<div class="table-card">
-  <div class="table-responsive">
-    <table>
-      <thead>
-        <tr><th>Name</th><th>Reg No</th><th>Semester</th><th>Club</th><th>Role</th><th>Activity Points</th></tr>
-      </thead>
-      <tbody>
-        {% for m in members %}
-        <tr>
-          <td><strong>{{ m.name }}</strong></td>
-          <td>{{ m.reg_no }}</td>
-          <td>{{ m.semester }}</td>
-          <td>{{ m.club_name }}</td>
-          <td>
-            {% if m.role == 'coordinator' %}
-              <span class="badge badge-gold">Coordinator</span>
-            {% else %}
-              <span class="badge badge-info">Member</span>
-            {% endif %}
-          </td>
-          <td><strong {% if m.total_points >= 100 %}style="color:#2e7d32"{% endif %}>{{ m.total_points }}</strong></td>
-        </tr>
-        {% else %}
-        <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted);">No members yet.</td></tr>
+<style>
+.clubs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 22px;
+  margin-top: 8px;
+}
+.club-card {
+  background: #fff; border-radius: 16px; overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+  transition: transform .25s, box-shadow .25s;
+  cursor: pointer; border: 1px solid #e8ecf2;
+}
+.club-card:hover { transform: translateY(-6px); box-shadow: 0 10px 28px rgba(0,0,0,.13); }
+.club-banner {
+  height: 120px; display: flex; align-items: center; justify-content: center;
+  font-size: 3.2rem; position: relative; overflow: hidden;
+}
+.club-banner::after { content:''; position:absolute; inset:0; background:rgba(0,0,0,.15); }
+.club-banner img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; }
+.club-banner .banner-icon { position:relative; z-index:1; filter:drop-shadow(0 2px 6px rgba(0,0,0,.3)); }
+.club-body { padding: 18px 20px 16px; }
+.club-name { font-size: 15px; font-weight: 700; color: #1a2340; margin-bottom: 6px; }
+.club-type-pill {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em;
+  padding: 3px 10px; border-radius: 20px;
+  background: #e8f0fe; color: #1557b0; margin-bottom: 10px;
+}
+.club-meta { display:flex; gap:16px; font-size:12px; color:#64748b; margin-bottom:12px; }
+.club-meta span { display:flex; align-items:center; gap:5px; }
+.club-desc { font-size:12px; color:#64748b; line-height:1.55; margin-bottom:14px; min-height:34px; }
+.btn-view-members {
+  width:100%; padding:9px; background:var(--blue,#1B3A6B); color:#fff;
+  border:none; border-radius:9px; font-size:13px; font-weight:600;
+  cursor:pointer; transition:background .2s;
+}
+.btn-view-members:hover { background:#2a52a0; }
+
+.overlay {
+  display:none; position:fixed; inset:0; z-index:9999;
+  background:rgba(10,15,40,.72); backdrop-filter:blur(4px);
+  align-items:center; justify-content:center; padding:20px;
+}
+.overlay.open { display:flex; animation:fadeIn .2s ease; }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+.panel {
+  background:#fff; border-radius:20px; width:100%; max-width:780px;
+  max-height:90vh; overflow-y:auto;
+  box-shadow:0 24px 80px rgba(0,0,0,.35); animation:slideUp .25s ease;
+}
+@keyframes slideUp { from{transform:translateY(30px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+.panel-banner {
+  height:180px; display:flex; align-items:center; justify-content:center;
+  font-size:5rem; position:relative; border-radius:20px 20px 0 0; overflow:hidden;
+}
+.panel-banner::after { content:''; position:absolute; inset:0; background:rgba(0,0,0,.18); }
+.panel-banner img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; }
+.panel-banner .panel-icon { position:relative; z-index:1; filter:drop-shadow(0 4px 12px rgba(0,0,0,.4)); }
+.panel-close {
+  position:absolute; top:14px; right:14px; z-index:10;
+  background:rgba(0,0,0,.35); border:none; border-radius:50%;
+  width:34px; height:34px; color:#fff; font-size:18px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
+.panel-close:hover { background:rgba(0,0,0,.6); }
+.panel-body { padding:24px 28px 28px; }
+.panel-title { font-size:22px; font-weight:800; color:#1a2340; margin-bottom:4px; }
+.panel-sub   { font-size:13px; color:#64748b; margin-bottom:20px; }
+
+.info-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:22px; }
+.info-box { background:#f8fafc; border-radius:10px; padding:12px 14px; text-align:center; }
+.info-box .ib-val { font-size:20px; font-weight:800; color:#1a2340; }
+.info-box .ib-lbl { font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:.05em; margin-top:2px; }
+
+.section-title {
+  font-size:13px; font-weight:700; color:var(--blue,#1B3A6B);
+  text-transform:uppercase; letter-spacing:.06em;
+  border-bottom:2px solid #e8ecf2; padding-bottom:8px; margin-bottom:14px;
+}
+
+.member-row {
+  display:flex; align-items:center; gap:12px;
+  padding:10px 14px; border-radius:10px;
+  margin-bottom:8px; background:#f8fafc; transition:background .15s;
+}
+.member-row.removed { opacity:.45; background:#fef2f2; }
+.member-row.removed .member-name { text-decoration:line-through; }
+
+/* avatar: shows photo or letter fallback */
+.member-avatar {
+  width:36px; height:36px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:14px; font-weight:700; color:#fff; overflow:hidden;
+}
+.member-avatar img {
+  width:100%; height:100%; object-fit:cover; border-radius:50%; display:block;
+}
+
+.member-info { flex:1; min-width:0; }
+.member-name { font-size:13px; font-weight:600; color:#1a2340; }
+.member-meta { font-size:11px; color:#94a3b8; margin-top:1px; }
+
+.role-badge { font-size:10px; font-weight:700; padding:2px 9px; border-radius:20px; white-space:nowrap; }
+.role-coord  { background:#fff3e0; color:#7a4500; }
+.role-member { background:#e3f2fd; color:#0d47a1; }
+
+.pts-chip { font-size:11px; font-weight:700; color:#059669; background:#d1fae5; padding:2px 8px; border-radius:20px; white-space:nowrap; }
+
+.btn-remove {
+  background:none; border:1px solid #fca5a5; border-radius:7px;
+  color:#dc2626; font-size:11px; font-weight:600;
+  padding:4px 10px; cursor:pointer; white-space:nowrap; transition:all .15s;
+}
+.btn-remove:hover { background:#fee2e2; }
+.btn-undo {
+  background:none; border:1px solid #6ee7b7; border-radius:7px;
+  color:#059669; font-size:11px; font-weight:600;
+  padding:4px 10px; cursor:pointer; white-space:nowrap; transition:all .15s;
+}
+.btn-undo:hover { background:#d1fae5; }
+.btn-make-coord {
+  background:none; border:1px solid #fde68a; border-radius:7px;
+  color:#92400e; font-size:11px; font-weight:600;
+  padding:4px 10px; cursor:pointer; white-space:nowrap; transition:all .15s;
+}
+.btn-make-coord:hover { background:#fef3c7; }
+
+.cmodal-overlay {
+  display:none; position:fixed; inset:0; z-index:99999;
+  background:rgba(10,15,40,.55); backdrop-filter:blur(3px);
+  align-items:center; justify-content:center; padding:20px;
+}
+.cmodal-overlay.open { display:flex; animation:fadeIn .15s ease; }
+.cmodal-box {
+  background:#fff; border-radius:16px; max-width:400px; width:100%;
+  padding:28px 26px 22px; box-shadow:0 20px 60px rgba(0,0,0,.3); text-align:center;
+}
+.cmodal-icon  { font-size:2.4rem; margin-bottom:10px; }
+.cmodal-title { font-size:16px; font-weight:800; color:#1a2340; margin-bottom:8px; }
+.cmodal-msg   { font-size:13px; color:#64748b; margin-bottom:20px; line-height:1.6; }
+.cmodal-btns  { display:flex; gap:10px; }
+.cmodal-btns button { flex:1; padding:10px; border:none; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; }
+.cbtn-cancel      { background:#f1f5f9; color:#374151; }
+.cbtn-rem         { background:#dc2626; color:#fff; }
+.cbtn-rem:hover   { background:#b91c1c; }
+.cbtn-coord       { background:#C8902A; color:#fff; }
+.cbtn-coord:hover { background:#a0721f; }
+
+.ct-technical     { background:linear-gradient(135deg,#1B3A6B,#2a52a0); }
+.ct-cultural      { background:linear-gradient(135deg,#7b1fa2,#ab47bc); }
+.ct-socialservice { background:linear-gradient(135deg,#1a7a4a,#26a96a); }
+.ct-sports        { background:linear-gradient(135deg,#e65100,#ef6c00); }
+.ct-academic      { background:linear-gradient(135deg,#1565c0,#1976d2); }
+.ct-arts          { background:linear-gradient(135deg,#ad1457,#e91e63); }
+.ct-film          { background:linear-gradient(135deg,#263238,#455a64); }
+.ct-environmental { background:linear-gradient(135deg,#2e7d32,#43a047); }
+.ct-default       { background:linear-gradient(135deg,#C8902A,#e8a83a); }
+</style>
+
+{# ── avatar macro: photo from uploads/students/ or letter fallback ── #}
+{% macro avatar(photo, name, bg_color) %}
+<div class="member-avatar" style="background:{{ bg_color }};">
+  {% if photo %}
+    <img src="/uploads/students/{{ photo }}" alt="{{ name }}"
+         onerror="this.style.display='none'"/>
+  {% else %}
+    {{ name[0]|upper }}
+  {% endif %}
+</div>
+{% endmacro %}
+
+<div class="page-header">
+  <h2>Club Members</h2>
+  <p>Manage members in your clubs — click a card to open</p>
+</div>
+
+{% if coord_clubs %}
+<div class="clubs-grid">
+  {% for club in coord_clubs %}
+  {% set ct = club.club_type | lower | replace(' ','') if club.club_type else 'default' %}
+  {% set valid_types = ['technical','cultural','socialservice','sports','academic','arts','film','environmental'] %}
+  {% set css_ct = ct if ct in valid_types else 'default' %}
+  {% set icons = {'technical':'⚙️','cultural':'🎭','socialservice':'🤝','sports':'🏆','academic':'📚','arts':'🎨','film':'🎬','environmental':'🌿','default':'🏛️'} %}
+  {% set icon = icons.get(css_ct, '🏛️') %}
+
+  <div class="club-card" onclick="openPanel({{ club.club_id }})">
+    <div class="club-banner ct-{{ css_ct }}">
+      {% if club.photo %}
+        <img src="/uploads/clubs/{{ club.photo }}" alt="{{ club.club_name }}"/>
+      {% endif %}
+      <span class="banner-icon">{{ icon }}</span>
+    </div>
+    <div class="club-body">
+      <div class="club-name">{{ club.club_name }}</div>
+      <div class="club-type-pill">{{ club.club_type or 'Club' }}</div>
+      <div class="club-meta">
+        <span><i class="fas fa-users"></i> {{ club.member_count }} members</span>
+      </div>
+      <div class="club-desc">{{ club.club_type or 'Club' }} at MACE. Click to view and manage members.</div>
+      <button class="btn-view-members" onclick="event.stopPropagation(); openPanel({{ club.club_id }})">
+        <i class="fas fa-users"></i> View Members
+      </button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div style="text-align:center;padding:80px 20px;color:#94a3b8;">
+  <i class="fas fa-users" style="font-size:48px;opacity:.2;display:block;margin-bottom:16px;"></i>
+  <h4 style="color:#64748b;">No clubs found</h4>
+  <p style="font-size:13px;margin-top:8px;">You are not currently a coordinator of any clubs.</p>
+</div>
+{% endif %}
+
+<!-- ── EXPANDED PANEL OVERLAY ─────────────────────────────────────── -->
+<div id="overlay" class="overlay" onclick="if(event.target===this)closePanel()">
+
+  {% for club in coord_clubs %}
+  {% set ct = club.club_type | lower | replace(' ','') if club.club_type else 'default' %}
+  {% set valid_types = ['technical','cultural','socialservice','sports','academic','arts','film','environmental'] %}
+  {% set css_ct = ct if ct in valid_types else 'default' %}
+  {% set icons = {'technical':'⚙️','cultural':'🎭','socialservice':'🤝','sports':'🏆','academic':'📚','arts':'🎨','film':'🎬','environmental':'🌿','default':'🏛️'} %}
+  {% set icon = icons.get(css_ct, '🏛️') %}
+  {% set members      = club_members.get(club.club_id, []) %}
+  {% set coordinators = members | selectattr('role','equalto','coordinator') | list %}
+  {% set regulars     = members | selectattr('role','equalto','member')      | list %}
+
+  <div class="panel" id="panel-{{ club.club_id }}" style="display:none;">
+    <div class="panel-banner ct-{{ css_ct }}">
+      {% if club.photo %}
+        <img src="/uploads/clubs/{{ club.photo }}" alt="{{ club.club_name }}"/>
+      {% endif %}
+      <span class="panel-icon">{{ icon }}</span>
+      <button class="panel-close" onclick="closePanel()">&times;</button>
+    </div>
+
+    <div class="panel-body">
+      <div class="panel-title">{{ club.club_name }}</div>
+      <div class="panel-sub">
+        <span style="background:#e8f0fe;color:#1557b0;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;">
+          {{ club.club_type or 'Club' }}
+        </span>
+      </div>
+
+      <div class="info-grid">
+        <div class="info-box"><div class="ib-val">{{ club.member_count }}</div><div class="ib-lbl">Total Members</div></div>
+        <div class="info-box"><div class="ib-val">{{ coordinators | length }}</div><div class="ib-lbl">Coordinator(s)</div></div>
+        <div class="info-box"><div class="ib-val">{{ regulars | length }}</div><div class="ib-lbl">Members</div></div>
+      </div>
+
+      <!-- Coordinators -->
+      <div class="section-title">
+        <i class="fas fa-star" style="color:#C8902A;margin-right:6px;"></i>Coordinator
+      </div>
+      {% if coordinators %}
+        {% for m in coordinators %}
+        <div class="member-row" id="row-{{ club.club_id }}-{{ m.reg_no }}">
+          {{ avatar(m.photo, m.name, '#C8902A') }}
+          <div class="member-info">
+            <div class="member-name">{{ m.name }}</div>
+            <div class="member-meta">{{ m.reg_no }} &nbsp;·&nbsp; {{ m.dept_name or '—' }} &nbsp;·&nbsp; {{ m.semester or '—' }}</div>
+          </div>
+          <span class="pts-chip">{{ m.total_points or 0 }} pts</span>
+          <span class="role-badge role-coord">Coordinator</span>
+          <button class="btn-remove" onclick="confirmRemove({{ club.club_id }}, '{{ m.reg_no }}', '{{ m.name | e }}', this)">
+            <i class="fas fa-user-minus"></i> Remove
+          </button>
+        </div>
         {% endfor %}
-      </tbody>
-    </table>
+      {% else %}
+        <div style="font-size:13px;color:#94a3b8;padding:10px 0 14px;">No coordinator assigned.</div>
+      {% endif %}
+
+      <!-- Members -->
+      <div class="section-title" style="margin-top:20px;">
+        <i class="fas fa-users" style="color:#1B3A6B;margin-right:6px;"></i>Members
+      </div>
+      {% if regulars %}
+        {% set colours = ['#1B3A6B','#7b1fa2','#1a7a4a','#e65100','#1565c0','#ad1457','#C8902A','#263238'] %}
+        {% for m in regulars %}
+        <div class="member-row" id="row-{{ club.club_id }}-{{ m.reg_no }}">
+          {{ avatar(m.photo, m.name, colours[loop.index0 % colours|length]) }}
+          <div class="member-info">
+            <div class="member-name">{{ m.name }}</div>
+            <div class="member-meta">{{ m.reg_no }} &nbsp;·&nbsp; {{ m.dept_name or '—' }} &nbsp;·&nbsp; {{ m.semester or '—' }}</div>
+          </div>
+          <span class="pts-chip">{{ m.total_points or 0 }} pts</span>
+          <span class="role-badge role-member">Member</span>
+          <button class="btn-make-coord" onclick="confirmMakeCoord({{ club.club_id }}, '{{ m.reg_no }}', '{{ m.name | e }}', this)">
+            <i class="fas fa-crown"></i> Make Coord
+          </button>
+          <button class="btn-remove" onclick="confirmRemove({{ club.club_id }}, '{{ m.reg_no }}', '{{ m.name | e }}', this)">
+            <i class="fas fa-user-minus"></i> Remove
+          </button>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div style="text-align:center;padding:30px;color:#94a3b8;font-size:13px;">No regular members yet.</div>
+      {% endif %}
+
+    </div>
+  </div>
+  {% endfor %}
+
+</div>
+
+<!-- Confirm modal -->
+<div class="cmodal-overlay" id="cmodal">
+  <div class="cmodal-box">
+    <div class="cmodal-icon"  id="cmIcon"></div>
+    <div class="cmodal-title" id="cmTitle"></div>
+    <div class="cmodal-msg"   id="cmMsg"></div>
+    <div class="cmodal-btns">
+      <button class="cbtn-cancel" onclick="closeConfirm()">Cancel</button>
+      <button id="cmConfirm" onclick="execAction()"></button>
+    </div>
   </div>
 </div>
+
+<script>
+let activePanel = null;
+function openPanel(clubId) {
+  if (activePanel) document.getElementById('panel-' + activePanel).style.display = 'none';
+  activePanel = clubId;
+  document.getElementById('panel-' + clubId).style.display = 'block';
+  document.getElementById('overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closePanel() {
+  if (activePanel) document.getElementById('panel-' + activePanel).style.display = 'none';
+  activePanel = null;
+  document.getElementById('overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+
+let pendingFn = null;
+function openConfirm(icon, title, msg, btnText, btnClass, fn) {
+  document.getElementById('cmIcon').textContent  = icon;
+  document.getElementById('cmTitle').textContent = title;
+  document.getElementById('cmMsg').innerHTML     = msg;
+  const btn = document.getElementById('cmConfirm');
+  btn.textContent = btnText;
+  btn.className   = btnClass;
+  pendingFn = fn;
+  document.getElementById('cmodal').classList.add('open');
+}
+function closeConfirm() {
+  document.getElementById('cmodal').classList.remove('open');
+  pendingFn = null;
+}
+function execAction() {
+  closeConfirm();
+  if (pendingFn) pendingFn();
+}
+
+function confirmRemove(clubId, studentId, name, btn) {
+  const row = document.getElementById('row-' + clubId + '-' + studentId);
+  if (row.classList.contains('removed')) {
+    doToggle(clubId, studentId, btn, row);
+    return;
+  }
+  openConfirm('🗑️', 'Remove Member?',
+    `Remove <strong>${name}</strong> from this club?`,
+    'Yes, Remove', 'cbtn-rem',
+    () => doToggle(clubId, studentId, btn, row)
+  );
+}
+
+function doToggle(clubId, studentId, btn, row) {
+  const isRemoved = row.classList.contains('removed');
+  const url = isRemoved
+    ? `/faculty/club/restore_member/${clubId}/${studentId}`
+    : `/faculty/club/remove_member/${clubId}/${studentId}`;
+  fetch(url, { method: 'POST' }).then(r => r.json()).then(data => {
+    if (!data.success) return;
+    if (isRemoved) {
+      row.classList.remove('removed');
+      btn.innerHTML = '<i class="fas fa-user-minus"></i> Remove';
+      btn.className = 'btn-remove';
+      btn.onclick   = () => confirmRemove(clubId, studentId, row.querySelector('.member-name').textContent, btn);
+    } else {
+      row.classList.add('removed');
+      btn.innerHTML = '<i class="fas fa-undo"></i> Undo';
+      btn.className = 'btn-undo';
+      btn.onclick   = () => doToggle(clubId, studentId, btn, row);
+    }
+  });
+}
+
+function confirmMakeCoord(clubId, studentId, name, btn) {
+  openConfirm('👑', 'Make Coordinator?',
+    `Make <strong>${name}</strong> the coordinator?<br>
+     <small style="color:#94a3b8;">Current coordinator becomes a regular member.</small>`,
+    'Yes, Make Coordinator', 'cbtn-coord',
+    () => doMakeCoord(clubId, studentId)
+  );
+}
+
+function doMakeCoord(clubId, studentId) {
+  fetch(`/coordinator/make_coordinator/${clubId}/${studentId}`, { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) return;
+      const panel = document.getElementById('panel-' + clubId);
+
+      // Demote old coordinator
+      if (data.old_coordinator_id) {
+        const oldRow = document.getElementById('row-' + clubId + '-' + data.old_coordinator_id);
+        if (oldRow) {
+          oldRow.querySelector('.role-badge').className   = 'role-badge role-member';
+          oldRow.querySelector('.role-badge').textContent = 'Member';
+          oldRow.querySelector('.member-avatar').style.background = '#1B3A6B';
+          const mc = document.createElement('button');
+          mc.className = 'btn-make-coord';
+          mc.innerHTML = '<i class="fas fa-crown"></i> Make Coord';
+          mc.onclick   = () => confirmMakeCoord(clubId, data.old_coordinator_id,
+            oldRow.querySelector('.member-name').textContent, mc);
+          oldRow.insertBefore(mc, oldRow.querySelector('.btn-remove'));
+          panel.querySelectorAll('.section-title')[1].after(oldRow);
+        }
+      }
+
+      // Promote new coordinator
+      const newRow = document.getElementById('row-' + clubId + '-' + studentId);
+      if (newRow) {
+        newRow.querySelector('.role-badge').className   = 'role-badge role-coord';
+        newRow.querySelector('.role-badge').textContent = 'Coordinator';
+        newRow.querySelector('.member-avatar').style.background = '#C8902A';
+        const mc = newRow.querySelector('.btn-make-coord');
+        if (mc) mc.remove();
+        panel.querySelectorAll('.section-title')[0].after(newRow);
+      }
+    });
+}
+</script>
 {% endblock %}

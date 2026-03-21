@@ -1,20 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}Announcements — MACE{% endblock %}
-{% block sidebar %}
-<div class="menu-section">Main</div>
-<a href="{{ url_for('student_dashboard') }}"><i class="fas fa-home"></i> Dashboard</a>
-<div class="menu-section">Clubs</div>
-<a href="{{ url_for('student_clubs') }}"><i class="fas fa-users"></i> View Clubs</a>
-<a href="{{ url_for('my_clubs') }}" class="active"><i class="fas fa-star"></i> My Clubs</a>
-<div class="menu-section">Events</div>
-<a href="{{ url_for('student_events') }}"><i class="fas fa-calendar-alt"></i> Event Timeline</a>
-<a href="{{ url_for('my_events') }}"><i class="fas fa-list-check"></i> My Events</a>
-<div class="menu-section">More</div>
-<a href="{{ url_for('upload_certificate') }}"><i class="fas fa-certificate"></i> Upload Certificate</a>
-<a href="{{ url_for('student_activity_points') }}"><i class="fas fa-trophy"></i> Activity Points</a>
-<a href="{{ url_for('student_announcements') }}"><i class="fas fa-bullhorn"></i> Announcements</a>
-<a href="{{ url_for('student_profile') }}"><i class="fas fa-user"></i> Profile</a>
-{% endblock %}
+
 
 {% block content %}
 <div class="page-header"><h2>Announcements</h2><p>From your clubs and registered events</p></div>

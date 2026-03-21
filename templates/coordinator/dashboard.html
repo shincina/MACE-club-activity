@@ -1,126 +1,310 @@
 {% extends 'base.html' %}
 {% block title %}Coordinator Dashboard — MACE{% endblock %}
-
-{% block sidebar %}
-<div class="menu-section">Coordinator</div>
-<a href="{{ url_for('coordinator_dashboard') }}" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-<a href="{{ url_for('create_event') }}"><i class="fas fa-plus-circle"></i> Create Event</a>
-<a href="{{ url_for('coordinator_members') }}"><i class="fas fa-users"></i> Members</a>
-<a href="{{ url_for('post_announcement') }}"><i class="fas fa-bullhorn"></i> Post Announcement</a>
-<div class="menu-section">Student</div>
-<a href="{{ url_for('student_dashboard') }}"><i class="fas fa-home"></i> Student Dashboard</a>
-<a href="{{ url_for('view_clubs') }}"><i class="fas fa-users"></i> View Clubs</a>
-<a href="{{ url_for('student_events') }}"><i class="fas fa-calendar-alt"></i> Events</a>
-<a href="{{ url_for('activity_points') }}"><i class="fas fa-trophy"></i> Activity Points</a>
-{% endblock %}
+{% block sidebar %}{% endblock %}
 
 {% block content %}
+<style>
+/* ── Club cards ─────────────────────────────────────────────────── */
+.coord-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 22px;
+  margin-top: 8px;
+}
+
+.coord-card {
+  background: #fff; border-radius: 16px; overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+  border: 1px solid #e8ecf2; cursor: pointer;
+  transition: transform .25s, box-shadow .25s;
+}
+.coord-card:hover { transform: translateY(-6px); box-shadow: 0 10px 28px rgba(0,0,0,.13); }
+
+.club-banner {
+  height: 130px; display: flex; align-items: center; justify-content: center;
+  font-size: 3.5rem; position: relative; overflow: hidden;
+}
+.club-banner::after { content:''; position:absolute; inset:0; background:rgba(0,0,0,.15); }
+.club-banner span { position: relative; z-index: 1; filter: drop-shadow(0 2px 8px rgba(0,0,0,.35)); }
+
+.club-body { padding: 18px 20px 16px; }
+.club-name { font-size: 16px; font-weight: 700; color: #1a2340; margin-bottom: 4px; }
+.club-type-pill {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em;
+  padding: 3px 10px; border-radius: 20px;
+  background: #e8f0fe; color: #1557b0; margin-bottom: 12px;
+}
+.club-stats { display: flex; gap: 20px; font-size: 12px; color: #64748b; margin-bottom: 14px; }
+.club-stats span { display: flex; align-items: center; gap: 5px; }
+
+.btn-open-club {
+  width: 100%; padding: 10px; background: var(--blue,#1B3A6B); color: #fff;
+  border: none; border-radius: 9px; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: background .2s;
+}
+.btn-open-club:hover { background: #2a52a0; }
+
+/* ── Club type colours ──────────────────────────────────────────── */
+.ct-technical    { background: linear-gradient(135deg,#1B3A6B,#2a52a0); }
+.ct-cultural     { background: linear-gradient(135deg,#7b1fa2,#ab47bc); }
+.ct-socialservice{ background: linear-gradient(135deg,#1a7a4a,#26a96a); }
+.ct-sports       { background: linear-gradient(135deg,#e65100,#ef6c00); }
+.ct-academic     { background: linear-gradient(135deg,#1565c0,#1976d2); }
+.ct-arts         { background: linear-gradient(135deg,#ad1457,#e91e63); }
+.ct-film         { background: linear-gradient(135deg,#263238,#455a64); }
+.ct-environmental{ background: linear-gradient(135deg,#2e7d32,#43a047); }
+.ct-default      { background: linear-gradient(135deg,#C8902A,#e8a83a); }
+
+/* ── Popup overlay ──────────────────────────────────────────────── */
+.popup-overlay {
+  display: none; position: fixed; inset: 0; z-index: 9999;
+  background: rgba(10,15,40,.75); backdrop-filter: blur(4px);
+  align-items: center; justify-content: center; padding: 20px;
+}
+.popup-overlay.open { display: flex; animation: pfade .2s ease; }
+@keyframes pfade { from{opacity:0} to{opacity:1} }
+
+.popup-box {
+  background: #fff; border-radius: 20px;
+  width: 100%; max-width: 640px; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 24px 80px rgba(0,0,0,.4);
+  animation: pup .25s ease;
+}
+@keyframes pup { from{transform:translateY(28px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+.popup-head {
+  height: 160px; display: flex; align-items: center; justify-content: center;
+  font-size: 4rem; border-radius: 20px 20px 0 0; position: relative;
+}
+.popup-head::after { content:''; position:absolute; inset:0; background:rgba(0,0,0,.18); border-radius:20px 20px 0 0; }
+.popup-close {
+  position: absolute; top: 14px; right: 14px; z-index: 10;
+  background: rgba(0,0,0,.35); border: none; border-radius: 50%;
+  width: 34px; height: 34px; color: #fff; font-size: 18px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.popup-close:hover { background: rgba(0,0,0,.6); }
+
+.popup-body { padding: 24px 28px 28px; }
+.popup-title { font-size: 20px; font-weight: 800; color: #1a2340; margin-bottom: 4px; }
+.popup-sub   { font-size: 13px; color: #64748b; margin-bottom: 20px; }
+
+.info-grid {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: 10px; margin-bottom: 22px;
+}
+.info-box {
+  background: #f8fafc; border-radius: 10px; padding: 12px 14px; text-align: center;
+}
+.info-box .ib-val { font-size: 22px; font-weight: 800; color: #1a2340; }
+.info-box .ib-lbl { font-size: 10px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-top: 2px; }
+
+.popup-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
+.pa-btn {
+  flex: 1; min-width: 120px; padding: 11px 14px; border: none; border-radius: 10px;
+  font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  transition: opacity .15s;
+}
+.pa-btn:hover { opacity: .85; }
+.pa-blue  { background: var(--blue,#1B3A6B); color: #fff; }
+.pa-gold  { background: var(--gold,#C8902A); color: #fff; }
+.pa-grey  { background: #f1f5f9; color: #374151; }
+
+/* ── Announcement form ──────────────────────────────────────────── */
+.ann-section { border-top: 1px solid #f0f2f5; padding-top: 18px; }
+.ann-title-section { font-size: 13px; font-weight: 700; color: var(--blue,#1B3A6B); margin-bottom: 12px; }
+.ann-field { margin-bottom: 12px; }
+.ann-field label { font-size: 12px; font-weight: 600; color: #444; display: block; margin-bottom: 5px; }
+.ann-field input, .ann-field textarea {
+  width: 100%; padding: 9px 12px; border: 2px solid #e2e6ed; border-radius: 8px;
+  font-size: 13px; box-sizing: border-box; font-family: inherit; resize: vertical;
+  transition: border .2s;
+}
+.ann-field input:focus, .ann-field textarea:focus { outline: none; border-color: var(--blue,#1B3A6B); }
+.btn-post {
+  width: 100%; padding: 11px; background: var(--blue,#1B3A6B); color: #fff;
+  border: none; border-radius: 9px; font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: background .2s;
+}
+.btn-post:hover { background: #2a52a0; }
+.ann-success {
+  display: none; background: #dcfce7; color: #166534; border-radius: 8px;
+  padding: 10px 14px; font-size: 13px; font-weight: 600; margin-top: 10px;
+  text-align: center;
+}
+</style>
+
 <div class="page-header">
   <h2>Coordinator Dashboard</h2>
-  <p>Manage your club — {{ coord_clubs | map(attribute='club_name') | join(', ') }}</p>
+  <p>Manage your club(s) — click a card to open details</p>
 </div>
 
-<div class="cards-grid">
-  <div class="stat-card gold">
-    <i class="fas fa-clock stat-card-icon"></i>
-    <div class="stat-card-value">{{ pending_memberships | length }}</div>
-    <div class="stat-card-label">Pending Requests</div>
+{% if coord_clubs %}
+<div class="coord-grid">
+  {% for club in coord_clubs %}
+  {% set ct = club.club_type | lower | replace(' ','') if club.club_type else 'default' %}
+  {% set valid = ['technical','cultural','socialservice','sports','academic','arts','film','environmental'] %}
+  {% set css_ct = ct if ct in valid else 'default' %}
+  {% set icons  = {'technical':'⚙️','cultural':'🎭','socialservice':'🤝','sports':'🏆','academic':'📚','arts':'🎨','film':'🎬','environmental':'🌿','default':'🏛️'} %}
+  {% set icon = icons.get(css_ct,'🏛️') %}
+
+  <div class="coord-card" onclick="openClub({{ club.club_id }})">
+    <div class="club-banner ct-{{ css_ct }}">
+      <span>{{ icon }}</span>
+    </div>
+    <div class="club-body">
+      <div class="club-name">{{ club.club_name }}</div>
+      <div class="club-type-pill">{{ club.club_type or 'Club' }}</div>
+      <div class="club-stats">
+        <span><i class="fas fa-users"></i> {{ club.member_count }} members</span>
+        <span><i class="fas fa-calendar-check"></i> {{ club.upcoming_events }} upcoming</span>
+        <span><i class="fas fa-history"></i> {{ club.past_events }} past</span>
+      </div>
+      <button class="btn-open-club" onclick="event.stopPropagation(); openClub({{ club.club_id }})">
+        <i class="fas fa-expand-alt"></i> Open Club
+      </button>
+    </div>
   </div>
-  <div class="stat-card blue">
-    <i class="fas fa-calendar stat-card-icon"></i>
-    <div class="stat-card-value">{{ club_events | length }}</div>
-    <div class="stat-card-label">Total Events</div>
-  </div>
-  <div class="stat-card green">
-    <i class="fas fa-check stat-card-icon"></i>
-    <div class="stat-card-value">{{ club_events | selectattr('status','eq','approved') | list | length }}</div>
-    <div class="stat-card-label">Approved Events</div>
-  </div>
+  {% endfor %}
 </div>
 
-<!-- Pending membership requests -->
-{% if pending_memberships %}
-<div class="table-card">
-  <div class="table-card-header">
-    <h3><i class="fas fa-user-clock" style="margin-right:8px;color:var(--gold)"></i>Pending Membership Requests</h3>
-  </div>
-  <div class="table-responsive">
-    <table>
-      <thead>
-        <tr><th>Student</th><th>Reg No</th><th>Semester</th><th>Club</th><th>Requested</th><th>Action</th></tr>
-      </thead>
-      <tbody>
-        {% for m in pending_memberships %}
-        <tr>
-          <td><strong>{{ m.name }}</strong></td>
-          <td>{{ m.reg_no }}</td>
-          <td>{{ m.semester }}</td>
-          <td>{{ m.club_name }}</td>
-          <td>{{ m.join_date }}</td>
-          <td>
-            <div style="display:flex;gap:8px;">
-              <form method="POST" action="{{ url_for('approve_member', membership_id=m.membership_id) }}">
-                <input type="hidden" name="action" value="approve"/>
-                <button class="btn btn-success btn-sm"><i class="fas fa-check"></i> Approve</button>
-              </form>
-              <form method="POST" action="{{ url_for('approve_member', membership_id=m.membership_id) }}">
-                <input type="hidden" name="action" value="reject"/>
-                <button class="btn btn-danger btn-sm"><i class="fas fa-times"></i> Reject</button>
-              </form>
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+{% else %}
+<div style="text-align:center;padding:80px 20px;color:#94a3b8;">
+  <i class="fas fa-crown" style="font-size:48px;opacity:.2;display:block;margin-bottom:16px;"></i>
+  <h4 style="color:#64748b;">No coordinator role found</h4>
+  <p style="font-size:13px;">You are not currently a coordinator of any club.</p>
 </div>
 {% endif %}
 
-<!-- Club events -->
-<div class="table-card">
-  <div class="table-card-header">
-    <h3><i class="fas fa-calendar-alt" style="margin-right:8px;color:var(--gold)"></i>Club Events</h3>
-    <a href="{{ url_for('create_event') }}" class="btn btn-gold btn-sm"><i class="fas fa-plus"></i> New Event</a>
+<!-- ── POPUP ──────────────────────────────────────────────────────── -->
+<div class="popup-overlay" id="popupOverlay" onclick="if(event.target===this)closeClub()">
+
+  {% for club in coord_clubs %}
+  {% set ct = club.club_type | lower | replace(' ','') if club.club_type else 'default' %}
+  {% set valid = ['technical','cultural','socialservice','sports','academic','arts','film','environmental'] %}
+  {% set css_ct = ct if ct in valid else 'default' %}
+  {% set icons  = {'technical':'⚙️','cultural':'🎭','socialservice':'🤝','sports':'🏆','academic':'📚','arts':'🎨','film':'🎬','environmental':'🌿','default':'🏛️'} %}
+  {% set icon = icons.get(css_ct,'🏛️') %}
+
+  <div class="popup-box" id="popup-{{ club.club_id }}" style="display:none;">
+
+    <div class="popup-head ct-{{ css_ct }}">
+      <span style="position:relative;z-index:1;filter:drop-shadow(0 4px 12px rgba(0,0,0,.4));">{{ icon }}</span>
+      <button class="popup-close" onclick="closeClub()">&times;</button>
+    </div>
+
+    <div class="popup-body">
+      <div class="popup-title">{{ club.club_name }}</div>
+      <div class="popup-sub">
+        <span style="background:#e8f0fe;color:#1557b0;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;">
+          {{ club.club_type }}
+        </span>
+        &nbsp;·&nbsp; Est. {{ club.created_date.strftime('%B %Y') if club.created_date else 'N/A' }}
+      </div>
+
+      <!-- Stats -->
+      <div class="info-grid">
+        <div class="info-box">
+          <div class="ib-val">{{ club.member_count }}</div>
+          <div class="ib-lbl">Members</div>
+        </div>
+        <div class="info-box">
+          <div class="ib-val">{{ club.upcoming_events }}</div>
+          <div class="ib-lbl">Upcoming</div>
+        </div>
+        <div class="info-box">
+          <div class="ib-val">{{ club.past_events }}</div>
+          <div class="ib-lbl">Past Events</div>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="popup-actions">
+        <a href="{{ url_for('coordinator_members') }}"
+           class="pa-btn pa-grey">
+          <i class="fas fa-users"></i> View Members
+        </a>
+        <a href="{{ url_for('coordinator_new_event') }}"
+           class="pa-btn pa-blue">
+          <i class="fas fa-plus-circle"></i> Create Event
+        </a>
+        <a href="{{ url_for('coordinator_my_events') }}"
+           class="pa-btn pa-gold">
+          <i class="fas fa-calendar-check"></i> Club Events
+        </a>
+      </div>
+
+      <!-- Post announcement -->
+      <div class="ann-section">
+        <div class="ann-title-section">
+          <i class="fas fa-bullhorn" style="color:var(--gold);margin-right:6px;"></i>Post Announcement
+        </div>
+        <form onsubmit="postAnnouncement(event, {{ club.club_id }})">
+          <input type="hidden" name="club_id" value="{{ club.club_id }}">
+          <div class="ann-field">
+            <label>Title</label>
+            <input type="text" name="title" placeholder="e.g. Meeting on Friday at 4 PM" required>
+          </div>
+          <div class="ann-field">
+            <label>Message</label>
+            <textarea name="message" rows="3" placeholder="Write your announcement here…" required></textarea>
+          </div>
+          <button type="submit" class="btn-post">
+            <i class="fas fa-paper-plane"></i> Post to Club Members
+          </button>
+          <div class="ann-success" id="ann-ok-{{ club.club_id }}">
+            ✅ Announcement posted successfully!
+          </div>
+        </form>
+      </div>
+
+    </div>
   </div>
-  {% if club_events %}
-  <div class="table-responsive">
-    <table>
-      <thead>
-        <tr><th>Event</th><th>Club</th><th>Date</th><th>Registered</th><th>Points</th><th>Status</th><th>Action</th></tr>
-      </thead>
-      <tbody>
-        {% for e in club_events %}
-        <tr>
-          <td><strong>{{ e.event_name }}</strong></td>
-          <td>{{ e.club_name }}</td>
-          <td>{{ e.event_date }}</td>
-          <td>{{ e.registered_count }} / {{ e.max_participants }}</td>
-          <td>{{ e.points }}</td>
-          <td>
-            {% if e.status == 'approved' %}<span class="badge badge-success">Approved</span>
-            {% elif e.status == 'pending' %}<span class="badge badge-warning">Pending</span>
-            {% elif e.status == 'completed' %}<span class="badge badge-secondary">Completed</span>
-            {% else %}<span class="badge badge-danger">Rejected</span>{% endif %}
-          </td>
-          <td>
-            {% if e.status == 'approved' %}
-            <a href="{{ url_for('mark_attendance', event_id=e.event_id) }}" class="btn btn-primary btn-sm">
-              <i class="fas fa-clipboard-check"></i> Attendance
-            </a>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <div class="empty-state" style="padding:30px;">
-    <i class="fas fa-calendar"></i>
-    <h4>No events yet</h4>
-    <p><a href="{{ url_for('create_event') }}" class="btn btn-gold" style="margin-top:10px">Create First Event</a></p>
-  </div>
-  {% endif %}
+  {% endfor %}
+
 </div>
+
+<script>
+let activePopup = null;
+
+function openClub(clubId) {
+  if (activePopup) document.getElementById('popup-' + activePopup).style.display = 'none';
+  activePopup = clubId;
+  document.getElementById('popup-' + clubId).style.display = 'block';
+  document.getElementById('popupOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeClub() {
+  if (activePopup) document.getElementById('popup-' + activePopup).style.display = 'none';
+  activePopup = null;
+  document.getElementById('popupOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function postAnnouncement(e, clubId) {
+  e.preventDefault();
+  const form = e.target;
+  const data = new FormData(form);
+  // Override club_id in case of multiple clubs
+  data.set('club_id', clubId);
+
+  fetch('{{ url_for("post_announcement") }}', {
+    method: 'POST',
+    body: data
+  }).then(r => r.json()).then(res => {
+    if (res.success) {
+      form.reset();
+      const ok = document.getElementById('ann-ok-' + clubId);
+      ok.style.display = 'block';
+      setTimeout(() => ok.style.display = 'none', 3000);
+    }
+  });
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeClub(); });
+</script>
+
 {% endblock %}

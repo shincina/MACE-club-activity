@@ -87,9 +87,16 @@ def login():
                 session['role']    = 'student'
                 session['name']    = user['name']
                 session['dept_id'] = user['dept_id']
-                cursor.execute('SELECT club_id FROM clubs WHERE coordinator_id = %s', (user['reg_no'],))
+
+                # Check if coordinator of at least 1 club
+                cursor.execute('''
+                    SELECT club_id FROM membership
+                    WHERE student_id = %s AND role = 'coordinator' AND status = 'approved'
+                    LIMIT 1
+                ''', (user['reg_no'],))
                 if cursor.fetchone():
                     session['is_coordinator'] = True
+
                 cursor.close()
                 return redirect(url_for('student_dashboard'))
 
@@ -369,26 +376,30 @@ def my_events():
 def register_event(event_id):
     reg_no = session['user_id']
     cursor = mysql.connection.cursor()
+
     cursor.execute('SELECT * FROM event_attendance WHERE event_id = %s AND student_id = %s', (event_id, reg_no))
     if cursor.fetchone():
-        flash('Already registered.', 'error')
-    else:
-        cursor.execute('SELECT max_participants FROM events WHERE event_id = %s', (event_id,))
-        event = cursor.fetchone()
-        cursor.execute('SELECT COUNT(*) as cnt FROM event_attendance WHERE event_id = %s', (event_id,))
-        if cursor.fetchone()['cnt'] >= event['max_participants']:
-            flash('Event is full!', 'error')
-        else:
-            cursor.execute('''
-                INSERT INTO event_attendance (event_id, student_id, attendance_status, payment_status)
-                VALUES (%s, %s, 'present', 'not_paid')
-            ''', (event_id, reg_no))
-            mysql.connection.commit()
-            flash('Registered successfully!', 'success')
+        cursor.close()
+        return jsonify({'success': False, 'message': 'Already registered.'})
+
+    cursor.execute('SELECT max_participants FROM events WHERE event_id = %s', (event_id,))
+    event = cursor.fetchone()
+    cursor.execute('SELECT COUNT(*) as cnt FROM event_attendance WHERE event_id = %s', (event_id,))
+    if cursor.fetchone()['cnt'] >= event['max_participants']:
+        cursor.close()
+        return jsonify({'success': False, 'message': 'Event is full!'})
+
+    data           = request.get_json(silent=True) or {}
+    payment_status = 'paid' if data.get('payment') == 'paid' else 'not_paid'
+
+    # attendance_status = 'NA' — coordinator marks present/absent later
+    cursor.execute('''
+        INSERT INTO event_attendance (event_id, student_id, attendance_status, payment_status)
+        VALUES (%s, %s, 'NA', %s)
+    ''', (event_id, reg_no, payment_status))
+    mysql.connection.commit()
     cursor.close()
-    return redirect(url_for('student_events'))
-
-
+    return jsonify({'success': True, 'payment': payment_status})
 @app.route('/student/activity_points')
 @login_required
 @role_required('student')
@@ -1103,20 +1114,41 @@ def coordinator_dashboard():
 
     reg_no = session['user_id']
     cursor = mysql.connection.cursor()
+
     cursor.execute('''
-        SELECT c.*, (SELECT COUNT(*) FROM membership WHERE club_id = c.club_id AND status = 'approved') AS member_count
-        FROM clubs c JOIN membership m ON m.club_id = c.club_id
+        SELECT c.*,
+            (SELECT COUNT(*) FROM membership WHERE club_id = c.club_id AND status = 'approved') AS member_count,
+            (SELECT COUNT(*) FROM events WHERE club_id = c.club_id AND status = 'approved' AND event_date >= CURDATE()) AS upcoming_events,
+            (SELECT COUNT(*) FROM events WHERE club_id = c.club_id AND event_date < CURDATE()) AS past_events
+        FROM clubs c
+        JOIN membership m ON m.club_id = c.club_id
         WHERE m.student_id = %s AND m.role = 'coordinator' AND m.status = 'approved'
     ''', (reg_no,))
-    my_club = cursor.fetchone()
+    coord_clubs = cursor.fetchall()
 
-    stats = {'event_count': 0, 'member_count': my_club['member_count'] if my_club else 0}
-    if my_club:
-        cursor.execute('SELECT COUNT(*) as cnt FROM events WHERE club_id = %s', (my_club['club_id'],))
-        stats['event_count'] = cursor.fetchone()['cnt']
     cursor.close()
-    return render_template('coordinator/dashboard.html', my_club=my_club, stats=stats)
+    return render_template('coordinator/dashboard.html', coord_clubs=coord_clubs)
 
+
+@app.route('/coordinator/post_announcement', methods=['POST'])
+@login_required
+@role_required('student')
+def post_announcement():
+    if not session.get('is_coordinator'):
+        return jsonify({'success': False}), 403
+
+    club_id = request.form.get('club_id')
+    title   = request.form.get('title')
+    message = request.form.get('message')
+
+    cursor = mysql.connection.cursor()
+    cursor.execute('''
+        INSERT INTO announcements (title, message, club_id, created_by)
+        VALUES (%s, %s, %s, %s)
+    ''', (title, message, club_id, session['user_id']))
+    mysql.connection.commit()
+    cursor.close()
+    return jsonify({'success': True})
 
 @app.route('/coordinator/new_event', methods=['GET', 'POST'])
 @login_required
@@ -1126,27 +1158,45 @@ def coordinator_new_event():
         flash('Access denied.', 'error')
         return redirect(url_for('student_dashboard'))
 
+    reg_no = session['user_id']
+    cursor = mysql.connection.cursor()
+
+    # Fetch ALL clubs this student coordinates
+    cursor.execute('''
+        SELECT c.club_id, c.club_name FROM clubs c
+        JOIN membership m ON m.club_id = c.club_id
+        WHERE m.student_id = %s AND m.role = 'coordinator' AND m.status = 'approved'
+    ''', (reg_no,))
+    coord_clubs = cursor.fetchall()
+
     if request.method == 'POST':
-        reg_no = session['user_id']
-        cursor = mysql.connection.cursor()
+        club_id = request.form.get('club_id')
+
+        # Verify the coordinator actually belongs to the selected club
         cursor.execute('''
-            SELECT c.club_id FROM clubs c JOIN membership m ON m.club_id = c.club_id
-            WHERE m.student_id = %s AND m.role = 'coordinator' AND m.status = 'approved'
-        ''', (reg_no,))
-        club = cursor.fetchone()
-        if club:
+            SELECT club_id FROM membership
+            WHERE student_id = %s AND club_id = %s AND role = 'coordinator' AND status = 'approved'
+        ''', (reg_no, club_id))
+
+        if cursor.fetchone():
             cursor.execute('''
                 INSERT INTO events (club_id, event_name, event_date, event_time, location,
-                     description, max_participants, points, status, created_by)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s)
-            ''', (club['club_id'], request.form['event_name'], request.form['event_date'],
-                  request.form['event_time'], request.form['location'], request.form['description'],
-                  request.form['max_participants'], request.form['points'], reg_no))
+                    description, max_participants, points, reg_fee, status, created_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s)
+            ''', (club_id, request.form['event_name'], request.form['event_date'],
+                request.form['event_time'], request.form['location'],
+                request.form['description'], request.form['max_participants'],
+                request.form['points'], request.form.get('reg_fee_final', 0), reg_no))
             mysql.connection.commit()
             flash('Event submitted for approval!', 'success')
+        else:
+            flash('Invalid club selection.', 'error')
+
         cursor.close()
         return redirect(url_for('coordinator_dashboard'))
-    return render_template('coordinator/new_event.html')
+
+    cursor.close()
+    return render_template('coordinator/new_event.html', coord_clubs=coord_clubs)
 
 
 @app.route('/coordinator/my_events')
@@ -1157,20 +1207,134 @@ def coordinator_my_events():
         flash('Access denied.', 'error')
         return redirect(url_for('student_dashboard'))
 
-    reg_no = session['user_id']
-    cursor = mysql.connection.cursor()
+    reg_no       = session['user_id']
+    selected_club = request.args.get('club', None)
+    cursor       = mysql.connection.cursor()
+
+    # All clubs this student coordinates
     cursor.execute('''
-        SELECT e.*, (SELECT COUNT(*) FROM event_attendance WHERE event_id = e.event_id) AS participant_count
-        FROM events e
-        JOIN clubs c ON e.club_id = c.club_id
+        SELECT c.club_id, c.club_name FROM clubs c
         JOIN membership m ON m.club_id = c.club_id
         WHERE m.student_id = %s AND m.role = 'coordinator' AND m.status = 'approved'
-        ORDER BY e.event_date DESC
     ''', (reg_no,))
+    coord_clubs = cursor.fetchall()
+
+    # Build event query with optional club filter
+    conditions = ['m.student_id = %s', 'm.role = "coordinator"', 'm.status = "approved"', 'e.status = "approved"']
+    params     = [reg_no]
+    if selected_club:
+        conditions.append('c.club_id = %s')
+        params.append(selected_club)
+
+    cursor.execute(f'''
+        SELECT e.*,
+            c.club_name,
+            (SELECT COUNT(*) FROM event_attendance WHERE event_id = e.event_id) AS participant_count,
+            CASE
+                WHEN e.event_date < CURDATE() THEN 'archived'
+                WHEN e.event_date = CURDATE() THEN 'ongoing'
+                ELSE 'upcoming'
+            END AS phase
+        FROM events e
+        JOIN clubs c      ON e.club_id = c.club_id
+        JOIN membership m ON m.club_id = c.club_id
+        WHERE {' AND '.join(conditions)}
+        ORDER BY FIELD(phase,'ongoing','upcoming','archived'), e.event_date ASC
+    ''', params)
     events = cursor.fetchall()
     cursor.close()
-    return render_template('coordinator/my_events.html', events=events)
 
+    # Serialize dates/times
+    serializable = []
+    for e in events:
+        row = dict(e)
+        for k, v in row.items():
+            if hasattr(v, 'isoformat'):
+                row[k] = v.isoformat()
+            elif hasattr(v, 'total_seconds'):
+                t = int(v.total_seconds()); h, r = divmod(t, 3600); m, _ = divmod(r, 60)
+                row[k] = f"{h:02d}:{m:02d}"
+        serializable.append(row)
+
+    return render_template('coordinator/my_events.html',
+        events=serializable, coord_clubs=coord_clubs, selected_club=selected_club)
+
+@app.route('/coordinator/event_participants/<int:event_id>')
+@login_required
+@role_required('student')
+def coordinator_event_participants(event_id):
+    if not session.get('is_coordinator'):
+        return jsonify([])
+    cursor = mysql.connection.cursor()
+    cursor.execute('''
+        SELECT ea.student_id, ea.attendance_status, s.name, s.reg_no, d.dept_name
+        FROM event_attendance ea
+        JOIN students s    ON ea.student_id = s.reg_no
+        LEFT JOIN departments d ON s.dept_id = d.dept_id
+        WHERE ea.event_id = %s
+        ORDER BY s.name
+    ''', (event_id,))
+    rows = cursor.fetchall()
+    cursor.close()
+    return jsonify(rows)
+
+@app.route('/coordinator/save_attendance/<int:event_id>', methods=['POST'])
+@login_required
+@role_required('student')
+def coordinator_save_attendance(event_id):
+    if not session.get('is_coordinator'):
+        return jsonify({'success': False})
+
+    data       = request.get_json()
+    attendance = data.get('attendance', {})  # { student_id: true/false }
+    cursor     = mysql.connection.cursor()
+
+    for student_id, is_present in attendance.items():
+        status = 'present' if is_present else 'absent'
+        cursor.execute('''
+            UPDATE event_attendance
+            SET attendance_status = %s
+            WHERE event_id = %s AND student_id = %s
+        ''', (status, event_id, student_id))
+
+        # Award points only if marked present and not already awarded
+        if is_present:
+            cursor.execute('''
+                SELECT e.points FROM events e WHERE e.event_id = %s
+            ''', (event_id,))
+            event = cursor.fetchone()
+            if event:
+                # Check if points already awarded for this event
+                cursor.execute('''
+                    SELECT activity_point_id FROM activity_points
+                    WHERE student_id = %s AND event_id = %s
+                ''', (student_id, event_id))
+                if not cursor.fetchone():
+                    cursor.execute('''
+                        INSERT INTO activity_points (student_id, event_id, points, description)
+                        VALUES (%s, %s, %s, %s)
+                    ''', (student_id, event_id, event['points'], 'Event attendance'))
+                    cursor.execute('''
+                        UPDATE students SET total_points = total_points + %s WHERE reg_no = %s
+                    ''', (event['points'], student_id))
+        else:
+            # Remove points if previously awarded and now marked absent
+            cursor.execute('''
+                SELECT points FROM activity_points
+                WHERE student_id = %s AND event_id = %s
+            ''', (student_id, event_id))
+            existing = cursor.fetchone()
+            if existing:
+                cursor.execute('''
+                    DELETE FROM activity_points WHERE student_id = %s AND event_id = %s
+                ''', (student_id, event_id))
+                cursor.execute('''
+                    UPDATE students SET total_points = total_points - %s WHERE reg_no = %s
+                ''', (existing['points'], student_id))
+
+    mysql.connection.commit()
+    cursor.close()
+    return jsonify({'success': True})
 
 @app.route('/coordinator/members')
 @login_required
@@ -1182,21 +1346,79 @@ def coordinator_members():
 
     reg_no = session['user_id']
     cursor = mysql.connection.cursor()
-    cursor.execute('''
-        SELECT m.*, s.name, s.email, s.reg_no, d.dept_name
-        FROM membership m
-        JOIN students s ON m.student_id = s.reg_no
-        LEFT JOIN departments d ON s.dept_id = d.dept_id
-        JOIN clubs c ON m.club_id = c.club_id
-        JOIN membership mc ON mc.club_id = c.club_id
-        WHERE mc.student_id = %s AND mc.role = 'coordinator' AND mc.status = 'approved'
-          AND m.status = 'approved'
-        ORDER BY m.role DESC, s.name
-    ''', (reg_no,))
-    members = cursor.fetchall()
-    cursor.close()
-    return render_template('coordinator/members.html', members=members)
 
+    # All clubs this student coordinates
+    cursor.execute('''
+        SELECT c.*,
+            (SELECT COUNT(*) FROM membership WHERE club_id = c.club_id AND status = 'approved') AS member_count
+        FROM clubs c
+        JOIN membership m ON m.club_id = c.club_id
+        WHERE m.student_id = %s AND m.role = 'coordinator' AND m.status = 'approved'
+    ''', (reg_no,))
+    coord_clubs = cursor.fetchall()
+
+    # Members per club
+    club_members = {}
+    for club in coord_clubs:
+        cursor.execute('''
+            SELECT m.role, s.name, s.reg_no, s.semester, s.total_points, d.dept_name
+            FROM membership m
+            JOIN students s     ON m.student_id = s.reg_no
+            LEFT JOIN departments d ON s.dept_id = d.dept_id
+            WHERE m.club_id = %s AND m.status = 'approved'
+            ORDER BY m.role DESC, s.name
+        ''', (club['club_id'],))
+        club_members[club['club_id']] = cursor.fetchall()
+
+    cursor.close()
+    return render_template('coordinator/members.html',
+        coord_clubs=coord_clubs, club_members=club_members)
+@app.route('/coordinator/make_coordinator/<int:club_id>/<string:student_id>', methods=['POST'])
+@login_required
+@role_required('student')
+def coordinator_make_coordinator(club_id, student_id):
+    if not session.get('is_coordinator'):
+        return jsonify({'success': False})
+
+    reg_no = session['user_id']
+    cursor = mysql.connection.cursor()
+
+    # Verify the logged-in student is coordinator of this club
+    cursor.execute('''
+        SELECT membership_id FROM membership
+        WHERE student_id = %s AND club_id = %s AND role = 'coordinator' AND status = 'approved'
+    ''', (reg_no, club_id))
+    if not cursor.fetchone():
+        cursor.close()
+        return jsonify({'success': False, 'message': 'Not authorized'})
+
+    # Get current coordinator to demote
+    cursor.execute('''
+        SELECT student_id FROM membership
+        WHERE club_id = %s AND role = 'coordinator' AND status = 'approved'
+    ''', (club_id,))
+    old_coord = cursor.fetchone()
+    old_coordinator_id = old_coord['student_id'] if old_coord else None
+
+    # Demote current coordinator to member
+    cursor.execute('''
+        UPDATE membership SET role = 'member'
+        WHERE club_id = %s AND role = 'coordinator' AND status = 'approved'
+    ''', (club_id,))
+
+    # Promote new coordinator
+    cursor.execute('''
+        UPDATE membership SET role = 'coordinator'
+        WHERE club_id = %s AND student_id = %s AND status = 'approved'
+    ''', (club_id, student_id))
+
+    # Update clubs table coordinator_id if it exists
+    cursor.execute('UPDATE clubs SET coordinator_id = %s WHERE club_id = %s', (student_id, club_id))
+
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({'success': True, 'old_coordinator_id': old_coordinator_id})
 
 # ─────────────────────────────────────────
 # ADMIN ROUTES
