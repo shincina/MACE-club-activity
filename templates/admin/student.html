@@ -1,0 +1,277 @@
+{% extends 'base.html' %}
+{% block title %}Students — Admin{% endblock %}
+{% block sidebar %}
+<div class="menu-section">Admin</div>
+<a href="{{ url_for('admin_dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+<div class="menu-section">Manage</div>
+<a href="{{ url_for('admin_departments') }}"><i class="fas fa-building"></i> Departments</a>
+<a href="{{ url_for('admin_students') }}" class="active"><i class="fas fa-user-graduate"></i> Students</a>
+<a href="{{ url_for('admin_faculty') }}"><i class="fas fa-chalkboard-teacher"></i> Faculty</a>
+<a href="{{ url_for('admin_clubs') }}"><i class="fas fa-users"></i> Clubs</a>
+<a href="{{ url_for('admin_memberships') }}"><i class="fas fa-id-card"></i> Memberships</a>
+<a href="{{ url_for('admin_events') }}"><i class="fas fa-calendar-alt"></i> Events</a>
+<div class="menu-section">Reports</div>
+<a href="{{ url_for('admin_reports') }}"><i class="fas fa-chart-bar"></i> AP Reports</a>
+<a href="{{ url_for('admin_announcements') }}"><i class="fas fa-bullhorn"></i> Announcements</a>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+  <div><h2>Students</h2><p>Manage all registered students</p></div>
+  <button onclick="document.getElementById('addModal').classList.add('open')" class="btn btn-gold">
+    <i class="fas fa-plus"></i> Add Student
+  </button>
+</div>
+
+<!-- Search & Filter Bar -->
+<div class="table-card" style="margin-bottom:14px; padding:14px 18px;">
+  <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+    <div style="position:relative; flex:1; min-width:200px;">
+      <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);"></i>
+      <input type="text" id="searchInput" placeholder="Search by name, reg no, email..."
+        style="width:100%;padding:8px 10px 8px 32px;border:1px solid #ddd;border-radius:6px;font-size:13px;"
+        oninput="filterTable()"/>
+    </div>
+    <select id="deptFilter" onchange="filterTable()"
+      style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;min-width:160px;">
+      <option value="">All Departments</option>
+      {% for d in departments %}
+      <option value="{{ d.dept_name }}">{{ d.dept_name }}</option>
+      {% endfor %}
+    </select>
+    <select id="semFilter" onchange="filterTable()"
+      style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+      <option value="">All Semesters</option>
+      {% for s in ['S1','S2','S3','S4','S5','S6','S7','S8'] %}
+      <option value="{{ s }}">{{ s }}</option>
+      {% endfor %}
+    </select>
+    <select id="sortSelect" onchange="sortTable()"
+      style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+      <option value="">Sort By</option>
+      <option value="name_asc">Name A→Z</option>
+      <option value="name_desc">Name Z→A</option>
+      <option value="points_desc">Points ↓</option>
+      <option value="points_asc">Points ↑</option>
+      <option value="dept_asc">Department A→Z</option>
+    </select>
+    <button onclick="clearFilters()" class="btn btn-outline btn-sm" style="white-space:nowrap;">
+      <i class="fas fa-times"></i> Clear
+    </button>
+  </div>
+  <div style="margin-top:8px;font-size:12px;color:var(--muted);">
+    Showing <span id="rowCount">0</span> student(s)
+  </div>
+</div>
+
+<div class="table-card">
+  <div class="table-responsive">
+    <table id="studentTable">
+      <thead>
+        <tr>
+          <th>Reg No</th>
+          <th>Name</th>
+          <th>Department</th>
+          <th>Semester</th>
+          <th>Email</th>
+          <th>Points</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in students %}
+        <tr data-name="{{ s.name|lower }}" data-reg="{{ s.reg_no|lower }}" data-email="{{ s.email|lower }}"
+            data-dept="{{ s.dept_name }}" data-sem="{{ s.semester }}" data-points="{{ s.total_points }}">
+          <td>{{ s.reg_no }}</td>
+          <td><strong>{{ s.name }}</strong></td>
+          <td>{{ s.dept_name }}</td>
+          <td>{{ s.semester }}</td>
+          <td>{{ s.email }}</td>
+          <td><strong {% if s.total_points >= 100 %}style="color:#2e7d32"{% endif %}>{{ s.total_points }}</strong></td>
+          <td style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn btn-outline btn-sm"
+              onclick="openEditStudent('{{ s.reg_no }}','{{ s.name }}','{{ s.email }}','{{ s.phone or '' }}','{{ s.semester }}','{{ s.dept_id }}')">
+              <i class="fas fa-edit"></i>
+            </button>
+            <form method="POST" onsubmit="return confirmAction('Delete student {{ s.name }}? This cannot be undone.')">
+              <input type="hidden" name="action" value="delete"/>
+              <input type="hidden" name="reg_no" value="{{ s.reg_no }}"/>
+              <button class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr id="noDataRow">
+          <td colspan="7" style="text-align:center;padding:30px;color:var(--muted);">No students found.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div id="emptyMsg" style="display:none;text-align:center;padding:30px;color:var(--muted);">
+      <i class="fas fa-search" style="font-size:24px;margin-bottom:8px;display:block;"></i>
+      No students match your search.
+    </div>
+  </div>
+</div>
+
+<!-- Add Student Modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="document.getElementById('addModal').classList.remove('open')">×</button>
+    <h3><i class="fas fa-user-plus" style="margin-right:8px;color:var(--gold)"></i>Add New Student</h3>
+    <form method="POST">
+      <input type="hidden" name="action" value="add"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Register No.</label>
+          <input type="text" name="reg_no" placeholder="e.g. B24CS001" required/>
+        </div>
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" name="name" required/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" name="email" placeholder="reg@mace.ac.in" required/>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="text" name="phone"/>
+        </div>
+        <div class="form-group">
+          <label>Semester</label>
+          <select name="semester" required>
+            {% for s in ['S1','S2','S3','S4','S5','S6','S7','S8'] %}
+            <option value="{{ s }}">{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Department</label>
+        <select name="dept_id" required>
+          {% for d in departments %}
+          <option value="{{ d.dept_id }}">{{ d.dept_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="text" name="password" value="student123" required/>
+      </div>
+      <button type="submit" class="btn btn-gold" style="width:100%"><i class="fas fa-save"></i> Add Student</button>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Student Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="document.getElementById('editModal').classList.remove('open')">×</button>
+    <h3><i class="fas fa-edit" style="margin-right:8px;color:var(--gold)"></i>Edit Student</h3>
+    <form method="POST">
+      <input type="hidden" name="action" value="edit"/>
+      <input type="hidden" name="reg_no" id="editRegNo"/>
+      <div class="form-group">
+        <label>Register No.</label>
+        <input type="text" id="editRegNoDisplay" disabled style="background:#f5f5f5;"/>
+      </div>
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" name="name" id="editName" required/>
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" name="email" id="editEmail" required/>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="text" name="phone" id="editPhone"/>
+        </div>
+        <div class="form-group">
+          <label>Semester</label>
+          <select name="semester" id="editSemester" required>
+            {% for s in ['S1','S2','S3','S4','S5','S6','S7','S8'] %}
+            <option value="{{ s }}">{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Department</label>
+        <select name="dept_id" id="editDept" required>
+          {% for d in departments %}
+          <option value="{{ d.dept_id }}">{{ d.dept_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-gold" style="width:100%"><i class="fas fa-save"></i> Save Changes</button>
+    </form>
+  </div>
+</div>
+
+<script>
+function openEditStudent(reg_no, name, email, phone, semester, dept_id) {
+  document.getElementById('editRegNo').value = reg_no;
+  document.getElementById('editRegNoDisplay').value = reg_no;
+  document.getElementById('editName').value = name;
+  document.getElementById('editEmail').value = email;
+  document.getElementById('editPhone').value = phone;
+  document.getElementById('editSemester').value = semester;
+  document.getElementById('editDept').value = dept_id;
+  document.getElementById('editModal').classList.add('open');
+}
+
+function filterTable() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const dept   = document.getElementById('deptFilter').value;
+  const sem    = document.getElementById('semFilter').value;
+  const rows   = document.querySelectorAll('#studentTable tbody tr[data-name]');
+  let visible  = 0;
+
+  rows.forEach(row => {
+    const matchSearch = !search || row.dataset.name.includes(search) || row.dataset.reg.includes(search) || row.dataset.email.includes(search);
+    const matchDept   = !dept || row.dataset.dept === dept;
+    const matchSem    = !sem  || row.dataset.sem  === sem;
+    const show = matchSearch && matchDept && matchSem;
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+
+  document.getElementById('rowCount').textContent = visible;
+  document.getElementById('emptyMsg').style.display = visible === 0 ? 'block' : 'none';
+}
+
+function sortTable() {
+  const val   = document.getElementById('sortSelect').value;
+  const tbody = document.querySelector('#studentTable tbody');
+  const rows  = Array.from(tbody.querySelectorAll('tr[data-name]'));
+
+  rows.sort((a, b) => {
+    if (val === 'name_asc')   return a.dataset.name.localeCompare(b.dataset.name);
+    if (val === 'name_desc')  return b.dataset.name.localeCompare(a.dataset.name);
+    if (val === 'points_desc') return parseInt(b.dataset.points) - parseInt(a.dataset.points);
+    if (val === 'points_asc')  return parseInt(a.dataset.points) - parseInt(b.dataset.points);
+    if (val === 'dept_asc')   return a.dataset.dept.localeCompare(b.dataset.dept);
+    return 0;
+  });
+
+  rows.forEach(row => tbody.appendChild(row));
+  filterTable();
+}
+
+function clearFilters() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('deptFilter').value  = '';
+  document.getElementById('semFilter').value   = '';
+  document.getElementById('sortSelect').value  = '';
+  filterTable();
+}
+
+// Init count on load
+document.addEventListener('DOMContentLoaded', filterTable);
+</script>
+{% endblock %}

@@ -1,6 +1,5 @@
 {% extends 'base.html' %}
 {% block title %}Memberships — Admin{% endblock %}
-
 {% block sidebar %}
 <div class="menu-section">Admin</div>
 <a href="{{ url_for('admin_dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
@@ -17,14 +16,70 @@
 {% endblock %}
 
 {% block content %}
-<div class="page-header">
-  <h2>All Memberships</h2>
-  <p>View and monitor all club membership records</p>
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h2>Memberships</h2>
+    <p>Manage all club memberships &amp; coordinators</p>
+  </div>
+  <button onclick="document.getElementById('assignCoordModal').classList.add('open')" class="btn btn-gold">
+    <i class="fas fa-user-shield"></i> Recruit Coordinator
+  </button>
 </div>
 
+<!-- ── Search & Filter Bar ── -->
+<div class="filter-bar" style="background:#fff;border-radius:12px;padding:16px 20px;margin-bottom:18px;
+     box-shadow:0 1px 6px rgba(0,0,0,.07);display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
+
+  <div style="position:relative;flex:1;min-width:180px;">
+    <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;"></i>
+    <input id="searchInput" type="text" placeholder="Search by name or reg no…"
+      style="width:100%;padding:8px 12px 8px 34px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;"
+      oninput="applyFilters()"/>
+  </div>
+
+  <select id="clubFilter" onchange="applyFilters()"
+    style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;background:#fff;">
+    <option value="">All Clubs</option>
+    {% set seen_clubs = [] %}
+    {% for m in memberships %}
+      {% if m.club_name not in seen_clubs %}
+        {% set _ = seen_clubs.append(m.club_name) %}
+        <option value="{{ m.club_name }}">{{ m.club_name }}</option>
+      {% endif %}
+    {% endfor %}
+  </select>
+
+  <select id="roleFilter" onchange="applyFilters()"
+    style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;background:#fff;">
+    <option value="">All Roles</option>
+    <option value="coordinator">Coordinators</option>
+    <option value="member">Members</option>
+  </select>
+
+  <select id="statusFilter" onchange="applyFilters()"
+    style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;background:#fff;">
+    <option value="">All Statuses</option>
+    <option value="approved">Approved</option>
+    <option value="pending">Pending</option>
+    <option value="rejected">Rejected</option>
+  </select>
+
+  <select id="sortFilter" onchange="applyFilters()"
+    style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;background:#fff;">
+    <option value="name_asc">Name A→Z</option>
+    <option value="name_desc">Name Z→A</option>
+    <option value="club_asc">Club A→Z</option>
+    <option value="date_desc">Latest First</option>
+  </select>
+
+  <button onclick="clearFilters()" class="btn btn-outline btn-sm"><i class="fas fa-times"></i> Clear</button>
+  <span id="rowCount" style="font-size:12px;color:var(--muted);white-space:nowrap;"></span>
+</div>
+
+<!-- ── Table ── -->
 <div class="table-card">
   <div class="table-responsive">
-    <table>
+    <table id="memberTable">
       <thead>
         <tr>
           <th>#</th>
@@ -34,23 +89,30 @@
           <th>Role</th>
           <th>Joined</th>
           <th>Status</th>
+          <th>Actions</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="memberBody">
         {% for m in memberships %}
-        <tr>
+        <tr class="member-row"
+            data-name="{{ m.student_name | lower }}"
+            data-reg="{{ m.reg_no | lower }}"
+            data-club="{{ m.club_name }}"
+            data-role="{{ m.role }}"
+            data-status="{{ m.status }}"
+            data-date="{{ m.join_date }}">
           <td>{{ loop.index }}</td>
           <td><strong>{{ m.student_name }}</strong></td>
           <td>{{ m.reg_no }}</td>
           <td>{{ m.club_name }}</td>
           <td>
             {% if m.role == 'coordinator' %}
-              <span class="badge badge-gold">Coordinator</span>
+              <span class="badge badge-gold"><i class="fas fa-star" style="font-size:10px;"></i> Coordinator</span>
             {% else %}
               <span class="badge badge-info">Member</span>
             {% endif %}
           </td>
-          <td>{{ m.join_date }}</td>
+          <td style="font-size:12px;">{{ m.join_date }}</td>
           <td>
             {% if m.status == 'approved' %}
               <span class="badge badge-success">Approved</span>
@@ -60,14 +122,154 @@
               <span class="badge badge-danger">Rejected</span>
             {% endif %}
           </td>
+          <td style="white-space:nowrap;">
+            <!-- Promote/Demote coordinator -->
+            {% if m.status == 'approved' %}
+              {% if m.role == 'member' %}
+              <form method="POST" style="display:inline;"
+                onsubmit="return confirmAction('Promote {{ m.student_name }} to Coordinator of {{ m.club_name }}?')">
+                <input type="hidden" name="action" value="promote"/>
+                <input type="hidden" name="membership_id" value="{{ m.membership_id }}"/>
+                <button class="btn btn-outline btn-sm" title="Promote to Coordinator" style="color:#f59e0b;border-color:#f59e0b;">
+                  <i class="fas fa-arrow-up"></i>
+                </button>
+              </form>
+              {% else %}
+              <form method="POST" style="display:inline;"
+                onsubmit="return confirmAction('Demote {{ m.student_name }} from Coordinator to Member?')">
+                <input type="hidden" name="action" value="demote"/>
+                <input type="hidden" name="membership_id" value="{{ m.membership_id }}"/>
+                <button class="btn btn-outline btn-sm" title="Demote to Member" style="color:#6366f1;border-color:#6366f1;">
+                  <i class="fas fa-arrow-down"></i>
+                </button>
+              </form>
+              {% endif %}
+            {% endif %}
+
+            <!-- Approve/Reject pending -->
+            {% if m.status == 'pending' %}
+            <form method="POST" style="display:inline;">
+              <input type="hidden" name="action" value="approve_membership"/>
+              <input type="hidden" name="membership_id" value="{{ m.membership_id }}"/>
+              <button class="btn btn-sm" style="background:#22c55e;color:#fff;border:none;" title="Approve">
+                <i class="fas fa-check"></i>
+              </button>
+            </form>
+            <form method="POST" style="display:inline;">
+              <input type="hidden" name="action" value="reject_membership"/>
+              <input type="hidden" name="membership_id" value="{{ m.membership_id }}"/>
+              <button class="btn btn-danger btn-sm" title="Reject">
+                <i class="fas fa-times"></i>
+              </button>
+            </form>
+            {% endif %}
+
+            <!-- Delete -->
+            <form method="POST" style="display:inline;"
+              onsubmit="return confirmAction('Remove this membership record?')">
+              <input type="hidden" name="action" value="delete_membership"/>
+              <input type="hidden" name="membership_id" value="{{ m.membership_id }}"/>
+              <button class="btn btn-danger btn-sm" title="Delete"><i class="fas fa-trash"></i></button>
+            </form>
+          </td>
         </tr>
         {% else %}
-        <tr>
-          <td colspan="7" style="text-align:center; padding:30px; color:var(--muted);">No memberships found.</td>
-        </tr>
+        <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted);">No memberships found.</td></tr>
         {% endfor %}
       </tbody>
     </table>
+    <div id="noResults" style="display:none;text-align:center;padding:30px;color:var(--muted);">
+      No memberships match your search.
+    </div>
   </div>
 </div>
+
+<!-- ══════════════════ RECRUIT COORDINATOR MODAL ══════════════════ -->
+<div class="modal-overlay" id="assignCoordModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="document.getElementById('assignCoordModal').classList.remove('open')">×</button>
+    <h3><i class="fas fa-user-shield" style="margin-right:8px;color:var(--gold)"></i>Recruit Coordinator</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
+      Assign an existing approved member as coordinator of their club,
+      or add a new membership as coordinator directly.
+    </p>
+    <form method="POST">
+      <input type="hidden" name="action" value="recruit_coordinator"/>
+      <div class="form-group">
+        <label>Student (Reg No)</label>
+        <select name="reg_no" required
+          style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;background:#fff;">
+          <option value="">-- Select Student --</option>
+          {% for s in students_list %}
+          <option value="{{ s.reg_no }}">{{ s.reg_no }} — {{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Club</label>
+        <select name="club_id" required
+          style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;background:#fff;">
+          <option value="">-- Select Club --</option>
+          {% for c in clubs_list %}
+          <option value="{{ c.club_id }}">{{ c.club_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="background:#f0f9ff;border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;">
+        <i class="fas fa-info-circle" style="color:#0ea5e9;margin-right:6px;"></i>
+        If the student already has a membership in this club, their role will be upgraded to
+        <strong>coordinator</strong>. Otherwise a new approved coordinator membership is created.
+      </div>
+      <button type="submit" class="btn btn-gold" style="width:100%">
+        <i class="fas fa-star"></i> Assign as Coordinator
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+function applyFilters() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const club   = document.getElementById('clubFilter').value;
+  const role   = document.getElementById('roleFilter').value;
+  const status = document.getElementById('statusFilter').value;
+  const sort   = document.getElementById('sortFilter').value;
+
+  const tbody = document.getElementById('memberBody');
+  const rows  = Array.from(tbody.querySelectorAll('tr.member-row'));
+
+  let visible = rows.filter(row => {
+    const matchSearch = !search || row.dataset.name.includes(search) || row.dataset.reg.includes(search);
+    const matchClub   = !club   || row.dataset.club   === club;
+    const matchRole   = !role   || row.dataset.role   === role;
+    const matchStatus = !status || row.dataset.status === status;
+    return matchSearch && matchClub && matchRole && matchStatus;
+  });
+
+  visible.sort((a, b) => {
+    if (sort === 'name_asc')  return a.dataset.name.localeCompare(b.dataset.name);
+    if (sort === 'name_desc') return b.dataset.name.localeCompare(a.dataset.name);
+    if (sort === 'club_asc')  return a.dataset.club.localeCompare(b.dataset.club);
+    if (sort === 'date_desc') return b.dataset.date.localeCompare(a.dataset.date);
+    return 0;
+  });
+
+  rows.forEach(r => r.style.display = 'none');
+  visible.forEach(r => { r.style.display = ''; tbody.appendChild(r); });
+
+  document.getElementById('noResults').style.display = visible.length === 0 ? 'block' : 'none';
+  document.getElementById('rowCount').textContent = visible.length + ' of ' + rows.length + ' records';
+}
+
+function clearFilters() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('clubFilter').value   = '';
+  document.getElementById('roleFilter').value   = '';
+  document.getElementById('statusFilter').value = '';
+  document.getElementById('sortFilter').value   = 'name_asc';
+  applyFilters();
+}
+
+window.addEventListener('DOMContentLoaded', applyFilters);
+</script>
 {% endblock %}

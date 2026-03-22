@@ -1,6 +1,5 @@
 {% extends 'base.html' %}
 {% block title %}Faculty — Admin{% endblock %}
-
 {% block sidebar %}
 <div class="menu-section">Admin</div>
 <a href="{{ url_for('admin_dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
@@ -27,34 +26,128 @@
   </button>
 </div>
 
+<!-- Search & Filter Bar -->
+<div class="table-card" style="margin-bottom:14px; padding:14px 18px;">
+  <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+    <div style="position:relative; flex:1; min-width:200px;">
+      <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);"></i>
+      <input type="text" id="searchInput" placeholder="Search by name, email, department..."
+        style="width:100%;padding:8px 10px 8px 32px;border:1px solid #ddd;border-radius:6px;font-size:13px;"
+        oninput="filterTable()"/>
+    </div>
+    <select id="deptFilter" onchange="filterTable()"
+      style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;min-width:140px;">
+      <option value="">All Departments</option>
+      {% set seen = [] %}
+      {% for f in faculty_list %}
+        {% if f.department not in seen %}
+          <option value="{{ f.department }}">{{ f.department }}</option>
+          {% if seen.append(f.department) %}{% endif %}
+        {% endif %}
+      {% endfor %}
+    </select>
+    <select id="roleFilter" onchange="filterTable()"
+      style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+      <option value="">All Roles</option>
+      <option value="faculty">Faculty</option>
+      <option value="fa">FA</option>
+      <option value="hod">HOD</option>
+      <option value="coordinator">Coordinator</option>
+      <option value="fa+coordinator">FA+Coordinator</option>
+      <option value="hod+coordinator">HOD+Coordinator</option>
+    </select>
+    <select id="sortSelect" onchange="sortTable()"
+      style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+      <option value="">Sort By</option>
+      <option value="name_asc">Name A→Z</option>
+      <option value="name_desc">Name Z→A</option>
+      <option value="dept_asc">Department A→Z</option>
+    </select>
+    <button onclick="clearFilters()" class="btn btn-outline btn-sm" style="white-space:nowrap;">
+      <i class="fas fa-times"></i> Clear
+    </button>
+  </div>
+  <div style="margin-top:8px;font-size:12px;color:var(--muted);">
+    Showing <span id="rowCount">0</span> faculty member(s)
+  </div>
+</div>
+
 <div class="table-card">
   <div class="table-responsive">
-    <table>
+    <table id="facultyTable">
       <thead>
         <tr>
           <th>#</th>
           <th>Name</th>
           <th>Email</th>
           <th>Department</th>
+          <th>Role</th>
           <th>Class In-Charge</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for f in faculty_list %}
-        <tr>
+        {% set r = (f.role or 'faculty')|lower %}
+        {% if 'hod' in r and 'coordinator' in r %}
+          {% set norm_role = 'hod+coordinator' %}
+        {% elif 'hod' in r %}
+          {% set norm_role = 'hod' %}
+        {% elif 'fa' in r and 'coordinator' in r %}
+          {% set norm_role = 'fa+coordinator' %}
+        {% elif 'fa' in r %}
+          {% set norm_role = 'fa' %}
+        {% elif 'coordinator' in r %}
+          {% set norm_role = 'coordinator' %}
+        {% else %}
+          {% set norm_role = 'faculty' %}
+        {% endif %}
+        <tr data-name="{{ f.faculty_name|lower }}" data-email="{{ f.email|lower }}"
+            data-dept="{{ f.department }}" data-role="{{ norm_role }}">
           <td>{{ f.faculty_id }}</td>
           <td><strong>{{ f.faculty_name }}</strong></td>
           <td>{{ f.email }}</td>
           <td>{{ f.department }}</td>
+          <td>
+            {% set r = (f.role or 'faculty')|lower %}
+            {% if 'hod' in r and 'coordinator' in r %}
+              <span class="badge badge-gold">HOD+Coordinator</span>
+            {% elif 'hod' in r %}
+              <span class="badge badge-info">HOD</span>
+            {% elif 'fa' in r and 'coordinator' in r %}
+              <span class="badge badge-gold">FA+Coordinator</span>
+            {% elif 'fa' in r %}
+              <span class="badge badge-info">FA</span>
+            {% elif 'coordinator' in r %}
+              <span class="badge badge-success">Coordinator</span>
+            {% else %}
+              <span class="badge" style="background:#eee;color:#555;">Faculty</span>
+            {% endif %}
+          </td>
           <td>{{ f.class_incharge or '—' }}</td>
+          <td style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn btn-outline btn-sm"
+              onclick="openEditFaculty('{{ f.faculty_id }}','{{ f.faculty_name }}','{{ f.email }}','{{ f.department }}','{{ f.class_incharge or '' }}','{{ (f.role or 'faculty') }}')">
+              <i class="fas fa-edit"></i>
+            </button>
+            <form method="POST" onsubmit="return confirmAction('Delete faculty {{ f.faculty_name }}? This cannot be undone.')">
+              <input type="hidden" name="action" value="delete_faculty"/>
+              <input type="hidden" name="faculty_id" value="{{ f.faculty_id }}"/>
+              <button class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></button>
+            </form>
+          </td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="5" style="text-align:center; padding:30px; color:var(--muted);">No faculty found.</td>
+          <td colspan="7" style="text-align:center;padding:30px;color:var(--muted);">No faculty found.</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
+    <div id="emptyMsg" style="display:none;text-align:center;padding:30px;color:var(--muted);">
+      <i class="fas fa-search" style="font-size:24px;margin-bottom:8px;display:block;"></i>
+      No faculty match your search.
+    </div>
   </div>
 </div>
 
@@ -75,11 +168,24 @@
       </div>
       <div class="form-group">
         <label>Department</label>
-        <input type="text" name="department" placeholder="e.g. Computer Science and Engineering" required/>
+        <input type="text" name="department" placeholder="e.g. CS" required/>
       </div>
-      <div class="form-group">
-        <label>Class In-Charge <span style="color:var(--muted); font-weight:400;">(optional)</span></label>
-        <input type="text" name="class_incharge" placeholder="e.g. S4CS"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Class In-Charge <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+          <input type="text" name="class_incharge" placeholder="e.g. S4CS"/>
+        </div>
+        <div class="form-group">
+          <label>Role</label>
+          <select name="role">
+            <option value="faculty">Faculty</option>
+            <option value="FA">FA</option>
+            <option value="HOD">HOD</option>
+            <option value="coordinator">Coordinator</option>
+            <option value="FA+coordinator">FA+Coordinator</option>
+            <option value="HOD+coordinator">HOD+Coordinator</option>
+          </select>
+        </div>
       </div>
       <div class="form-group">
         <label>Password</label>
@@ -91,4 +197,120 @@
     </form>
   </div>
 </div>
+
+<!-- Edit Faculty Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="document.getElementById('editModal').classList.remove('open')">×</button>
+    <h3><i class="fas fa-edit" style="margin-right:8px; color:var(--gold)"></i>Edit Faculty</h3>
+    <form method="POST">
+      <input type="hidden" name="action" value="edit_faculty"/>
+      <input type="hidden" name="faculty_id" id="editFacultyId"/>
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" name="faculty_name" id="editFacultyName" required/>
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" name="email" id="editFacultyEmail" required/>
+      </div>
+      <div class="form-group">
+        <label>Department</label>
+        <input type="text" name="department" id="editFacultyDept" required/>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Class In-Charge</label>
+          <input type="text" name="class_incharge" id="editFacultyClass" placeholder="e.g. S4CS"/>
+        </div>
+        <div class="form-group">
+          <label>Role</label>
+          <select name="role" id="editFacultyRole">
+            <option value="faculty">Faculty</option>
+            <option value="FA">FA</option>
+            <option value="HOD">HOD</option>
+            <option value="coordinator">Coordinator</option>
+            <option value="FA+coordinator">FA+Coordinator</option>
+            <option value="HOD+coordinator">HOD+Coordinator</option>
+          </select>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-gold" style="width:100%">
+        <i class="fas fa-save"></i> Save Changes
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+function openEditFaculty(id, name, email, dept, cls, role) {
+  document.getElementById('editFacultyId').value    = id;
+  document.getElementById('editFacultyName').value  = name;
+  document.getElementById('editFacultyEmail').value = email;
+  document.getElementById('editFacultyDept').value  = dept;
+  document.getElementById('editFacultyClass').value = cls;
+  document.getElementById('editFacultyRole').value  = role;
+  document.getElementById('editModal').classList.add('open');
+}
+
+function filterTable() {
+  const search = document.getElementById('searchInput').value.toLowerCase().trim();
+  const dept   = document.getElementById('deptFilter').value;
+  const role   = document.getElementById('roleFilter').value.toLowerCase().trim();
+  const rows   = document.querySelectorAll('#facultyTable tbody tr[data-name]');
+  let visible  = 0;
+
+  rows.forEach(row => {
+    const rowName  = row.dataset.name  || '';
+    const rowEmail = row.dataset.email || '';
+    const rowDept  = row.dataset.dept  || '';
+    const rowRole  = (row.dataset.role || '').toLowerCase().trim();
+
+    const matchSearch = !search ||
+      rowName.includes(search) ||
+      rowEmail.includes(search) ||
+      rowDept.toLowerCase().includes(search);
+
+    const matchDept = !dept || rowDept === dept;
+
+    // Exact role match — prevents 'fa' from matching 'faculty' and vice-versa
+    const matchRole = !role || rowRole === role;
+
+    const show = matchSearch && matchDept && matchRole;
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+
+  document.getElementById('rowCount').textContent = visible;
+  document.getElementById('emptyMsg').style.display = visible === 0 ? 'block' : 'none';
+}
+
+function sortTable() {
+  const val   = document.getElementById('sortSelect').value;
+  const tbody = document.querySelector('#facultyTable tbody');
+  const rows  = Array.from(tbody.querySelectorAll('tr[data-name]'));
+
+  if (!val) { filterTable(); return; }
+
+  rows.sort((a, b) => {
+    if (val === 'name_asc')  return (a.dataset.name || '').localeCompare(b.dataset.name || '');
+    if (val === 'name_desc') return (b.dataset.name || '').localeCompare(a.dataset.name || '');
+    if (val === 'dept_asc')  return (a.dataset.dept || '').localeCompare(b.dataset.dept || '');
+    return 0;
+  });
+
+  rows.forEach(row => tbody.appendChild(row));
+  filterTable(); // re-apply active filters after reordering
+}
+
+function clearFilters() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('deptFilter').value  = '';
+  document.getElementById('roleFilter').value  = '';
+  document.getElementById('sortSelect').value  = '';
+  filterTable();
+}
+
+document.addEventListener('DOMContentLoaded', filterTable);
+</script>
 {% endblock %}

@@ -67,9 +67,8 @@ def login():
 
         cursor = mysql.connection.cursor()
 
-        # ── ADMIN ──────────────────────────────────────────────────
         if role == 'admin':
-            cursor.execute('SELECT * FROM admin WHERE username = %s', (email,))
+            cursor.execute('SELECT * FROM admins WHERE email = %s', (email,))
             user = cursor.fetchone()
             if user and user['password'] == password:
                 session['user_id'] = user['admin_id']
@@ -78,7 +77,6 @@ def login():
                 cursor.close()
                 return redirect(url_for('admin_dashboard'))
 
-        # ── STUDENT ────────────────────────────────────────────────
         elif role == 'student':
             cursor.execute('SELECT * FROM students WHERE email = %s', (email,))
             user = cursor.fetchone()
@@ -88,7 +86,6 @@ def login():
                 session['name']    = user['name']
                 session['dept_id'] = user['dept_id']
 
-                # Check if coordinator of at least 1 club
                 cursor.execute('''
                     SELECT club_id FROM membership
                     WHERE student_id = %s AND role = 'coordinator' AND status = 'approved'
@@ -100,7 +97,6 @@ def login():
                 cursor.close()
                 return redirect(url_for('student_dashboard'))
 
-        # ── FACULTY ────────────────────────────────────────────────
         elif role == 'faculty':
             try:
                 cursor.execute('SELECT * FROM faculty WHERE email = %s', (email,))
@@ -115,17 +111,13 @@ def login():
                     session['role']    = 'faculty'
                     session['name']    = user['faculty_name']
 
-                    # Normalize role to lowercase so 'FA+Coordinator' == 'fa+coordinator'
                     faculty_role            = (user['role'] or 'faculty').strip().lower()
                     session['faculty_role'] = faculty_role
                     print(f"DEBUG: faculty_role='{faculty_role}'")
 
-                    # Roles that unlock club sidebar sections
                     club_roles  = {'coordinator', 'hod+coordinator', 'fa+coordinator'}
-                    # Roles that unlock class sidebar sections
                     class_roles = {'fa', 'fa+coordinator'}
 
-                    # Check if this faculty is actually set as incharge of any active club
                     cursor.execute('''
                         SELECT club_id FROM clubs
                         WHERE faculty_incharge = %s AND status = 'Active' LIMIT 1
@@ -134,7 +126,6 @@ def login():
                     session['has_club'] = (faculty_role in club_roles) and (club_row is not None)
                     print(f"DEBUG: club_row={club_row}, has_club={session['has_club']}")
 
-                    # Check class assignment
                     session['has_class'] = faculty_role in class_roles
                     class_incharge = user['class_incharge']
 
@@ -223,10 +214,11 @@ def student_dashboard():
     cursor.execute('''
         SELECT a.*, c.club_name FROM announcements a
         LEFT JOIN clubs c ON a.club_id = c.club_id
-        WHERE a.club_id IS NULL OR a.club_id IN (
-            SELECT club_id FROM membership
-            WHERE student_id = %s AND status = 'approved'
-        )
+        WHERE (a.club_id IS NULL AND (a.audience = 'all' OR a.audience = 'students' OR a.audience IS NULL))
+           OR a.club_id IN (
+               SELECT club_id FROM membership
+               WHERE student_id = %s AND status = 'approved'
+           )
         ORDER BY a.created_date DESC LIMIT 5
     ''', (reg_no,))
     announcements = cursor.fetchall()
@@ -392,7 +384,6 @@ def register_event(event_id):
     data           = request.get_json(silent=True) or {}
     payment_status = 'paid' if data.get('payment') == 'paid' else 'not_paid'
 
-    # attendance_status = 'NA' — coordinator marks present/absent later
     cursor.execute('''
         INSERT INTO event_attendance (event_id, student_id, attendance_status, payment_status)
         VALUES (%s, %s, 'NA', %s)
@@ -400,6 +391,8 @@ def register_event(event_id):
     mysql.connection.commit()
     cursor.close()
     return jsonify({'success': True, 'payment': payment_status})
+
+
 @app.route('/student/activity_points')
 @login_required
 @role_required('student')
@@ -566,9 +559,10 @@ def student_announcements():
     cursor.execute('''
         SELECT a.*, c.club_name FROM announcements a
         LEFT JOIN clubs c ON a.club_id = c.club_id
-        WHERE a.club_id IS NULL OR a.club_id IN (
-            SELECT club_id FROM membership WHERE student_id = %s AND status = 'approved'
-        )
+        WHERE (a.club_id IS NULL AND (a.audience = 'all' OR a.audience = 'students' OR a.audience IS NULL))
+           OR a.club_id IN (
+               SELECT club_id FROM membership WHERE student_id = %s AND status = 'approved'
+           )
         ORDER BY a.created_date DESC
     ''', (session['user_id'],))
     announcements = cursor.fetchall()
@@ -616,6 +610,8 @@ def faculty_dashboard():
     cursor.execute('''
         SELECT a.*, c.club_name FROM announcements a
         LEFT JOIN clubs c ON a.club_id = c.club_id
+        WHERE a.club_id IS NULL
+          AND (a.audience = 'all' OR a.audience = 'faculty' OR a.audience IS NULL)
         ORDER BY a.created_date DESC LIMIT 10
     ''')
     announcements = cursor.fetchall()
@@ -641,6 +637,23 @@ def faculty_dashboard():
         faculty=faculty, my_clubs=my_clubs,
         pending_events=pending_events, pending_certs=pending_certs,
         announcements=announcements, class_students=class_students)
+
+
+@app.route('/faculty/announcements')
+@login_required
+@role_required('faculty')
+def faculty_announcements():
+    cursor = mysql.connection.cursor()
+    cursor.execute('''
+        SELECT a.*, c.club_name FROM announcements a
+        LEFT JOIN clubs c ON a.club_id = c.club_id
+        WHERE a.club_id IS NULL
+          AND (a.audience = 'all' OR a.audience = 'faculty' OR a.audience IS NULL)
+        ORDER BY a.created_date DESC
+    ''')
+    announcements = cursor.fetchall()
+    cursor.close()
+    return render_template('faculty/announcement.html', announcements=announcements)
 
 
 @app.route('/faculty/profile')
@@ -786,7 +799,6 @@ def faculty_events():
         club_filter=club_filter, status_filter=status_filter)
 
 
-
 @app.route('/faculty/membership_approvals')
 @login_required
 @role_required('faculty')
@@ -827,6 +839,7 @@ def faculty_membership_approvals():
         memberships=memberships, my_clubs=my_clubs,
         club_filter=club_filter, status_filter=status_filter)
 
+
 @app.route('/faculty/validation')
 @login_required
 @role_required('faculty')
@@ -856,7 +869,6 @@ def faculty_validation():
     ''', params)
     events = cursor.fetchall()
 
-    # Serialize dates
     serializable = []
     for e in events:
         row = dict(e)
@@ -882,6 +894,7 @@ def faculty_validation():
         events=serializable, my_clubs=my_clubs,
         club_filter=club_filter, status_filter=status_filter,
         pending_certificates=pending_certificates)
+
 
 @app.route('/faculty/approve_event/<int:event_id>', methods=['GET', 'POST'])
 @login_required
@@ -969,7 +982,7 @@ def faculty_view_class():
         return redirect(url_for('faculty_dashboard'))
 
     class_incharge = faculty['class_incharge']
-    faculty_role = session.get('faculty_role', '')
+    faculty_role   = session.get('faculty_role', '')
 
     if not class_incharge and faculty_role not in {'fa', 'fa+coordinator'}:
         flash('You are not assigned as a class incharge.', 'error')
@@ -978,7 +991,6 @@ def faculty_view_class():
     if class_incharge:
         semester = class_incharge[:2]
         dept     = class_incharge[2:]
-
         cursor.execute('''
             SELECT s.*, d.dept_name,
                 (SELECT COUNT(*) FROM membership WHERE student_id = s.reg_no AND status = 'approved') AS clubs_joined,
@@ -1064,7 +1076,7 @@ def faculty_class_certificates():
         return redirect(url_for('faculty_dashboard'))
 
     class_incharge = faculty['class_incharge']
-    faculty_role = session.get('faculty_role', '')
+    faculty_role   = session.get('faculty_role', '')
 
     if not class_incharge and faculty_role not in {'fa', 'fa+coordinator'}:
         flash('You are not assigned as a class incharge.', 'error')
@@ -1094,7 +1106,6 @@ def faculty_class_certificates():
         certificates = []
 
     cursor.close()
-
     class_code = class_incharge or "Not Assigned"
     return render_template('faculty/class_certificates.html',
         certificates=certificates, status_filter=status_filter, faculty=faculty, class_code=class_code)
@@ -1150,6 +1161,7 @@ def post_announcement():
     cursor.close()
     return jsonify({'success': True})
 
+
 @app.route('/coordinator/new_event', methods=['GET', 'POST'])
 @login_required
 @role_required('student')
@@ -1161,7 +1173,6 @@ def coordinator_new_event():
     reg_no = session['user_id']
     cursor = mysql.connection.cursor()
 
-    # Fetch ALL clubs this student coordinates
     cursor.execute('''
         SELECT c.club_id, c.club_name FROM clubs c
         JOIN membership m ON m.club_id = c.club_id
@@ -1171,8 +1182,6 @@ def coordinator_new_event():
 
     if request.method == 'POST':
         club_id = request.form.get('club_id')
-
-        # Verify the coordinator actually belongs to the selected club
         cursor.execute('''
             SELECT club_id FROM membership
             WHERE student_id = %s AND club_id = %s AND role = 'coordinator' AND status = 'approved'
@@ -1207,11 +1216,10 @@ def coordinator_my_events():
         flash('Access denied.', 'error')
         return redirect(url_for('student_dashboard'))
 
-    reg_no       = session['user_id']
+    reg_no        = session['user_id']
     selected_club = request.args.get('club', None)
-    cursor       = mysql.connection.cursor()
+    cursor        = mysql.connection.cursor()
 
-    # All clubs this student coordinates
     cursor.execute('''
         SELECT c.club_id, c.club_name FROM clubs c
         JOIN membership m ON m.club_id = c.club_id
@@ -1219,7 +1227,6 @@ def coordinator_my_events():
     ''', (reg_no,))
     coord_clubs = cursor.fetchall()
 
-    # Build event query with optional club filter
     conditions = ['m.student_id = %s', 'm.role = "coordinator"', 'm.status = "approved"', 'e.status = "approved"']
     params     = [reg_no]
     if selected_club:
@@ -1244,7 +1251,6 @@ def coordinator_my_events():
     events = cursor.fetchall()
     cursor.close()
 
-    # Serialize dates/times
     serializable = []
     for e in events:
         row = dict(e)
@@ -1258,6 +1264,7 @@ def coordinator_my_events():
 
     return render_template('coordinator/my_events.html',
         events=serializable, coord_clubs=coord_clubs, selected_club=selected_club)
+
 
 @app.route('/coordinator/event_participants/<int:event_id>')
 @login_required
@@ -1278,6 +1285,7 @@ def coordinator_event_participants(event_id):
     cursor.close()
     return jsonify(rows)
 
+
 @app.route('/coordinator/save_attendance/<int:event_id>', methods=['POST'])
 @login_required
 @role_required('student')
@@ -1286,7 +1294,7 @@ def coordinator_save_attendance(event_id):
         return jsonify({'success': False})
 
     data       = request.get_json()
-    attendance = data.get('attendance', {})  # { student_id: true/false }
+    attendance = data.get('attendance', {})
     cursor     = mysql.connection.cursor()
 
     for student_id, is_present in attendance.items():
@@ -1297,14 +1305,10 @@ def coordinator_save_attendance(event_id):
             WHERE event_id = %s AND student_id = %s
         ''', (status, event_id, student_id))
 
-        # Award points only if marked present and not already awarded
         if is_present:
-            cursor.execute('''
-                SELECT e.points FROM events e WHERE e.event_id = %s
-            ''', (event_id,))
+            cursor.execute('SELECT e.points FROM events e WHERE e.event_id = %s', (event_id,))
             event = cursor.fetchone()
             if event:
-                # Check if points already awarded for this event
                 cursor.execute('''
                     SELECT activity_point_id FROM activity_points
                     WHERE student_id = %s AND event_id = %s
@@ -1318,7 +1322,6 @@ def coordinator_save_attendance(event_id):
                         UPDATE students SET total_points = total_points + %s WHERE reg_no = %s
                     ''', (event['points'], student_id))
         else:
-            # Remove points if previously awarded and now marked absent
             cursor.execute('''
                 SELECT points FROM activity_points
                 WHERE student_id = %s AND event_id = %s
@@ -1336,6 +1339,7 @@ def coordinator_save_attendance(event_id):
     cursor.close()
     return jsonify({'success': True})
 
+
 @app.route('/coordinator/members')
 @login_required
 @role_required('student')
@@ -1347,7 +1351,6 @@ def coordinator_members():
     reg_no = session['user_id']
     cursor = mysql.connection.cursor()
 
-    # All clubs this student coordinates
     cursor.execute('''
         SELECT c.*,
             (SELECT COUNT(*) FROM membership WHERE club_id = c.club_id AND status = 'approved') AS member_count
@@ -1357,7 +1360,6 @@ def coordinator_members():
     ''', (reg_no,))
     coord_clubs = cursor.fetchall()
 
-    # Members per club
     club_members = {}
     for club in coord_clubs:
         cursor.execute('''
@@ -1373,6 +1375,8 @@ def coordinator_members():
     cursor.close()
     return render_template('coordinator/members.html',
         coord_clubs=coord_clubs, club_members=club_members)
+
+
 @app.route('/coordinator/make_coordinator/<int:club_id>/<string:student_id>', methods=['POST'])
 @login_required
 @role_required('student')
@@ -1383,7 +1387,6 @@ def coordinator_make_coordinator(club_id, student_id):
     reg_no = session['user_id']
     cursor = mysql.connection.cursor()
 
-    # Verify the logged-in student is coordinator of this club
     cursor.execute('''
         SELECT membership_id FROM membership
         WHERE student_id = %s AND club_id = %s AND role = 'coordinator' AND status = 'approved'
@@ -1392,7 +1395,6 @@ def coordinator_make_coordinator(club_id, student_id):
         cursor.close()
         return jsonify({'success': False, 'message': 'Not authorized'})
 
-    # Get current coordinator to demote
     cursor.execute('''
         SELECT student_id FROM membership
         WHERE club_id = %s AND role = 'coordinator' AND status = 'approved'
@@ -1400,25 +1402,23 @@ def coordinator_make_coordinator(club_id, student_id):
     old_coord = cursor.fetchone()
     old_coordinator_id = old_coord['student_id'] if old_coord else None
 
-    # Demote current coordinator to member
     cursor.execute('''
         UPDATE membership SET role = 'member'
         WHERE club_id = %s AND role = 'coordinator' AND status = 'approved'
     ''', (club_id,))
 
-    # Promote new coordinator
     cursor.execute('''
         UPDATE membership SET role = 'coordinator'
         WHERE club_id = %s AND student_id = %s AND status = 'approved'
     ''', (club_id, student_id))
 
-    # Update clubs table coordinator_id if it exists
     cursor.execute('UPDATE clubs SET coordinator_id = %s WHERE club_id = %s', (student_id, club_id))
 
     mysql.connection.commit()
     cursor.close()
 
     return jsonify({'success': True, 'old_coordinator_id': old_coordinator_id})
+
 
 # ─────────────────────────────────────────
 # ADMIN ROUTES
@@ -1432,15 +1432,320 @@ def admin_dashboard():
     cursor.execute('SELECT COUNT(*) as cnt FROM students')
     total_students = cursor.fetchone()['cnt']
     cursor.execute("SELECT COUNT(*) as cnt FROM clubs WHERE status = 'Active'")
-    total_clubs = cursor.fetchone()['cnt']
-    cursor.execute('SELECT COUNT(*) as cnt FROM events')
+    active_clubs = cursor.fetchone()['cnt']
+    cursor.execute("SELECT COUNT(*) as cnt FROM events WHERE status = 'approved'")
     total_events = cursor.fetchone()['cnt']
     cursor.execute('SELECT COUNT(*) as cnt FROM faculty')
     total_faculty = cursor.fetchone()['cnt']
+    cursor.execute("SELECT COUNT(*) as cnt FROM students WHERE total_points >= 100")
+    eligible_students = cursor.fetchone()['cnt']
+    cursor.execute("SELECT COUNT(*) as cnt FROM membership WHERE status = 'pending'")
+    pending_memberships = cursor.fetchone()['cnt']
+    cursor.execute("SELECT COUNT(*) as cnt FROM certificates WHERE status = 'pending'")
+    pending_certs = cursor.fetchone()['cnt']
+    cursor.execute('''
+        SELECT c.club_name, COUNT(m.membership_id) AS members
+        FROM clubs c
+        LEFT JOIN membership m ON c.club_id = m.club_id AND m.status = 'approved'
+        GROUP BY c.club_id ORDER BY members DESC LIMIT 5
+    ''')
+    top_clubs = cursor.fetchall()
     cursor.close()
     return render_template('admin/dashboard.html',
-        total_students=total_students, total_clubs=total_clubs,
-        total_events=total_events, total_faculty=total_faculty)
+        total_students=total_students, active_clubs=active_clubs,
+        total_events=total_events, total_faculty=total_faculty,
+        eligible_students=eligible_students, pending_memberships=pending_memberships,
+        pending_certs=pending_certs, top_clubs=top_clubs)
+
+
+@app.route('/admin/students', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_students():
+    cursor = mysql.connection.cursor()
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+
+        if action == 'add':
+            cursor.execute('''
+                INSERT INTO students (reg_no, name, email, phone, semester, dept_id, password)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ''', (
+                request.form['reg_no'], request.form['name'],
+                request.form['email'],  request.form.get('phone', ''),
+                request.form['semester'], request.form['dept_id'],
+                request.form['password']
+            ))
+            mysql.connection.commit()
+            flash('Student added successfully!', 'success')
+
+        elif action == 'edit':
+            cursor.execute('''
+                UPDATE students SET name=%s, email=%s, phone=%s, semester=%s, dept_id=%s
+                WHERE reg_no=%s
+            ''', (
+                request.form['name'], request.form['email'],
+                request.form.get('phone', ''), request.form['semester'],
+                request.form['dept_id'], request.form['reg_no']
+            ))
+            mysql.connection.commit()
+            flash('Student updated successfully!', 'success')
+
+        elif action == 'delete':
+            reg_no = request.form['reg_no']
+            cursor.execute('DELETE FROM event_attendance WHERE student_id = %s', (reg_no,))
+            cursor.execute('DELETE FROM activity_points   WHERE student_id = %s', (reg_no,))
+            cursor.execute('DELETE FROM certificates      WHERE student_id = %s', (reg_no,))
+            cursor.execute('DELETE FROM membership        WHERE student_id = %s', (reg_no,))
+            cursor.execute('DELETE FROM students          WHERE reg_no     = %s', (reg_no,))
+            mysql.connection.commit()
+            flash('Student deleted.', 'success')
+
+        cursor.close()
+        return redirect(url_for('admin_students'))
+
+    cursor.execute('''
+        SELECT s.*, d.dept_name FROM students s
+        LEFT JOIN departments d ON s.dept_id = d.dept_id
+        ORDER BY s.name
+    ''')
+    students = cursor.fetchall()
+
+    cursor.execute('SELECT * FROM departments ORDER BY dept_name')
+    departments = cursor.fetchall()
+
+    cursor.close()
+    return render_template('admin/student.html', students=students, departments=departments)
+
+
+@app.route('/admin/faculty', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_faculty():
+    cursor = mysql.connection.cursor()
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+
+        if action == 'add':
+            cursor.execute('''
+                INSERT INTO faculty (faculty_name, email, department, class_incharge, password, role)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            ''', (
+                request.form['faculty_name'], request.form['email'],
+                request.form['department'],   request.form.get('class_incharge') or None,
+                request.form['password'],     request.form.get('role', 'faculty')
+            ))
+            mysql.connection.commit()
+            flash('Faculty added successfully!', 'success')
+
+        elif action == 'edit_faculty':
+            cursor.execute('''
+                UPDATE faculty SET faculty_name=%s, email=%s, department=%s,
+                    class_incharge=%s, role=%s
+                WHERE faculty_id=%s
+            ''', (
+                request.form['faculty_name'], request.form['email'],
+                request.form['department'],   request.form.get('class_incharge') or None,
+                request.form.get('role', 'faculty'), request.form['faculty_id']
+            ))
+            mysql.connection.commit()
+            flash('Faculty updated successfully!', 'success')
+
+        elif action == 'delete_faculty':
+            fid = request.form['faculty_id']
+            cursor.execute('UPDATE clubs SET faculty_incharge = NULL WHERE faculty_incharge = %s', (fid,))
+            cursor.execute('UPDATE certificates SET verified_by = NULL WHERE verified_by = %s', (fid,))
+            cursor.execute('DELETE FROM faculty WHERE faculty_id = %s', (fid,))
+            mysql.connection.commit()
+            flash('Faculty deleted.', 'success')
+
+        cursor.close()
+        return redirect(url_for('admin_faculty'))
+
+    cursor.execute('SELECT * FROM faculty ORDER BY faculty_name')
+    faculty_list = cursor.fetchall()
+    cursor.close()
+    return render_template('admin/faculty.html', faculty_list=faculty_list)
+
+
+@app.route('/admin/departments', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_departments():
+    cursor = mysql.connection.cursor()
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'add':
+            cursor.execute('''
+                INSERT INTO departments (dept_name, dept_code, hod_name)
+                VALUES (%s, %s, %s)
+            ''', (request.form['dept_name'], request.form['dept_code'], request.form.get('hod_name')))
+            mysql.connection.commit()
+            flash('Department added!', 'success')
+        cursor.close()
+        return redirect(url_for('admin_departments'))
+
+    cursor.execute('SELECT * FROM departments ORDER BY dept_name')
+    departments = cursor.fetchall()
+    cursor.close()
+    return render_template('admin/department.html', departments=departments)
+
+
+@app.route('/admin/clubs', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_clubs():
+    cursor = mysql.connection.cursor()
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'add':
+            cursor.execute('''
+                INSERT INTO clubs (club_name, club_type, faculty_incharge, created_date, status)
+                VALUES (%s, %s, %s, CURDATE(), 'Active')
+            ''', (request.form['club_name'], request.form['club_type'], request.form['faculty_incharge']))
+            mysql.connection.commit()
+            flash('Club created!', 'success')
+        cursor.close()
+        return redirect(url_for('admin_clubs'))
+
+    cursor.execute('''
+        SELECT c.*, f.faculty_name,
+            (SELECT COUNT(*) FROM membership WHERE club_id = c.club_id AND status = 'approved') AS members
+        FROM clubs c
+        LEFT JOIN faculty f ON c.faculty_incharge = f.faculty_id
+        ORDER BY c.club_name
+    ''')
+    clubs = cursor.fetchall()
+
+    cursor.execute('SELECT * FROM faculty ORDER BY faculty_name')
+    faculty_list = cursor.fetchall()
+    cursor.close()
+    return render_template('admin/clubs.html', clubs=clubs, faculty_list=faculty_list)
+
+
+@app.route('/admin/clubs/toggle/<int:club_id>')
+@login_required
+@role_required('admin')
+def toggle_club(club_id):
+    cursor = mysql.connection.cursor()
+    cursor.execute("SELECT status FROM clubs WHERE club_id = %s", (club_id,))
+    club = cursor.fetchone()
+    new_status = 'Inactive' if club['status'] == 'Active' else 'Active'
+    cursor.execute("UPDATE clubs SET status = %s WHERE club_id = %s", (new_status, club_id))
+    mysql.connection.commit()
+    cursor.close()
+    flash(f'Club status updated to {new_status}.', 'success')
+    return redirect(url_for('admin_clubs'))
+
+
+@app.route('/admin/memberships')
+@login_required
+@role_required('admin')
+def admin_memberships():
+    cursor = mysql.connection.cursor()
+    cursor.execute('''
+        SELECT m.*, s.name AS student_name, s.reg_no, c.club_name
+        FROM membership m
+        JOIN students s ON m.student_id = s.reg_no
+        JOIN clubs c    ON m.club_id    = c.club_id
+        ORDER BY m.join_date DESC
+    ''')
+    memberships = cursor.fetchall()
+    cursor.close()
+    return render_template('admin/memberships.html', memberships=memberships)
+
+
+@app.route('/admin/events')
+@login_required
+@role_required('admin')
+def admin_events():
+    cursor = mysql.connection.cursor()
+    cursor.execute('''
+        SELECT e.*, c.club_name, f.faculty_name
+        FROM events e
+        JOIN clubs c   ON e.club_id          = c.club_id
+        LEFT JOIN faculty f ON c.faculty_incharge = f.faculty_id
+        ORDER BY e.event_date DESC
+    ''')
+    events = cursor.fetchall()
+    cursor.close()
+    return render_template('admin/events.html', events=events)
+
+
+@app.route('/admin/reports')
+@login_required
+@role_required('admin')
+def admin_reports():
+    cursor = mysql.connection.cursor()
+    cursor.execute('''
+        SELECT s.reg_no, s.name, d.dept_name, s.semester, s.total_points,
+            CASE WHEN s.total_points >= 100 THEN 'Eligible' ELSE 'Not Eligible' END AS grad_status
+        FROM students s
+        LEFT JOIN departments d ON s.dept_id = d.dept_id
+        ORDER BY s.total_points DESC
+    ''')
+    report = cursor.fetchall()
+
+    cursor.execute("SELECT COUNT(*) as cnt FROM students WHERE total_points >= 100")
+    eligible = cursor.fetchone()['cnt']
+
+    cursor.execute("SELECT COUNT(*) as cnt FROM students")
+    total = cursor.fetchone()['cnt']
+
+    cursor.execute('''
+        SELECT d.dept_name, COALESCE(AVG(s.total_points), 0) AS avg_pts
+        FROM departments d
+        LEFT JOIN students s ON s.dept_id = d.dept_id
+        GROUP BY d.dept_id ORDER BY avg_pts DESC
+    ''')
+    dept_stats = cursor.fetchall()
+    cursor.close()
+    return render_template('admin/reports.html', report=report, eligible=eligible, total=total, dept_stats=dept_stats)
+
+
+@app.route('/admin/announcements', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_announcements():
+    cursor = mysql.connection.cursor()
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+
+        if action == 'add':
+            cursor.execute('''
+                INSERT INTO announcements (title, message, created_by, audience)
+                VALUES (%s, %s, %s, %s)
+            ''', (
+                request.form['title'],
+                request.form['message'],
+                session['name'],
+                request.form.get('audience', 'all')
+            ))
+            mysql.connection.commit()
+            flash('Announcement posted!', 'success')
+
+        elif action == 'delete':
+            cursor.execute('DELETE FROM announcements WHERE announcement_id = %s',
+                           (request.form['announcement_id'],))
+            mysql.connection.commit()
+            flash('Announcement deleted.', 'success')
+
+        cursor.close()
+        return redirect(url_for('admin_announcements'))
+
+    cursor.execute('''
+        SELECT * FROM announcements
+        WHERE club_id IS NULL
+        ORDER BY created_date DESC
+    ''')
+    announcements = cursor.fetchall()
+    cursor.close()
+    return render_template('admin/announcement.html', announcements=announcements)
 
 
 # ─────────────────────────────────────────
@@ -1479,5 +1784,3 @@ def api_top_organizer():
 if __name__ == '__main__':
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     app.run(debug=True, host='0.0.0.0', port=5000)
-
-    
