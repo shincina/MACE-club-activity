@@ -1596,8 +1596,10 @@ def admin_students():
                     photo_filename = secure_filename(
                         f"student_{reg_no}_{int(datetime.now().timestamp())}.{ext}"
                     )
-                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
-
+                    student_folder = os.path.join(app.config['UPLOAD_FOLDER'], 'students')
+                    os.makedirs(student_folder, exist_ok=True)
+                    file.save(os.path.join(student_folder, photo_filename))
+                    photo_filename = f'students/{photo_filename}'  # ← folder goes into DB
             cursor.execute('''
                 INSERT INTO students (reg_no, name, email, phone, semester, dept_id, password, photo)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
@@ -1619,7 +1621,10 @@ def admin_students():
                     photo_filename = secure_filename(
                         f"student_{request.form['reg_no']}_{int(datetime.now().timestamp())}.{ext}"
                     )
-                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
+                    student_folder = os.path.join(app.config['UPLOAD_FOLDER'], 'students')
+                    os.makedirs(student_folder, exist_ok=True)
+                    file.save(os.path.join(student_folder, photo_filename))
+                    photo_filename = f'students/{photo_filename}'  # ← folder goes into DB
                     photo_update = ', photo = %s'
                     photo_params = [photo_filename]
 
@@ -1714,7 +1719,10 @@ def admin_faculty():
                     photo_filename = secure_filename(
                         f"faculty_{request.form['email'].split('@')[0]}_{int(datetime.now().timestamp())}.{ext}"
                     )
-                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
+                    faculty_folder = os.path.join(app.config['UPLOAD_FOLDER'], 'faculty')
+                    os.makedirs(faculty_folder, exist_ok=True)
+                    file.save(os.path.join(faculty_folder, photo_filename))
+                    photo_filename = f'faculty/{photo_filename}'  # ← already in DB insert, now file location matches
 
             cursor.execute('''
                 INSERT INTO faculty (faculty_name, email, department, class_incharge, password, role, photo)
@@ -1735,7 +1743,10 @@ def admin_faculty():
                     photo_filename = secure_filename(
                         f"faculty_{request.form['faculty_id']}_{int(datetime.now().timestamp())}.{ext}"
                     )
-                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
+                    faculty_folder = os.path.join(app.config['UPLOAD_FOLDER'], 'faculty')
+                    os.makedirs(faculty_folder, exist_ok=True)
+                    file.save(os.path.join(faculty_folder, photo_filename))
+                    photo_filename = f'faculty/{photo_filename}'  # ← already in DB insert, now file location matches
                     photo_update = ', photo = %s'
                     photo_params = [photo_filename]
 
@@ -1878,8 +1889,10 @@ def admin_clubs():
                 file = request.files['club_photo']
                 if file and file.filename != '' and allowed_file(file.filename):
                     photo_filename = secure_filename(f"club_{int(datetime.now().timestamp())}_{file.filename}")
-                    filepath = os.path.join(app.config['UPLOAD_FOLDER'], photo_filename)
-                    file.save(filepath)
+                    clubs_folder = os.path.join(app.config['UPLOAD_FOLDER'], 'clubs')
+                    os.makedirs(clubs_folder, exist_ok=True)
+                    file.save(os.path.join(clubs_folder, photo_filename))
+                    photo_filename = f'clubs/{photo_filename}'  # ← folder goes into DB
             
             cursor.execute('''
                 INSERT INTO CLUBS (club_name, club_type, faculty_incharge, created_date, status, photo)
