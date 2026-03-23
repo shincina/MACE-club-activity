@@ -91,6 +91,7 @@ CREATE TABLE `announcements` (
   `club_id` int DEFAULT NULL,
   `event_id` int DEFAULT NULL,
   `created_by` varchar(100) DEFAULT NULL,
+  `audience` enum('all','students','faculty') DEFAULT 'all',
   `created_date` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`announcement_id`),
   KEY `club_id` (`club_id`),
@@ -106,7 +107,7 @@ CREATE TABLE `announcements` (
 
 LOCK TABLES `announcements` WRITE;
 /*!40000 ALTER TABLE `announcements` DISABLE KEYS */;
-INSERT INTO `announcements` VALUES (1,'Welcome to Activity Points System','Track your participation and earn points for graduation eligibility. Complete 100 points before final year!',NULL,NULL,'System Admin','2026-03-19 23:40:43'),(2,'Semester Activity Registration Open','All students can now register for club activities and events. Join at least one club to start earning points.',NULL,NULL,'System Admin','2026-03-19 23:40:43'),(3,'NSS Blood Donation Camp','Registrations are now open! Please register before April 10th.',1,1,'B24CS001','2026-03-19 23:40:43'),(4,'IEEE Hackathon 2026','Get ready for the biggest coding event of the year! Form teams of 3-4 members.',2,4,'B24AIM001','2026-03-19 23:40:43'),(5,'Literary Club Meeting','All members are requested to attend the monthly meeting on April 5th at 4 PM.',3,NULL,'B24CS002','2026-03-19 23:40:43'),(6,'meeting ','on friday 4pm',8,NULL,'B24CS001','2026-03-21 14:05:15');
+INSERT INTO `announcements` VALUES (1,'Welcome to Activity Points System','Track your participation and earn points for graduation eligibility. Complete 100 points before final year!',NULL,NULL,'System Admin','all','2026-03-19 23:40:43'),(2,'Semester Activity Registration Open','All students can now register for club activities and events. Join at least one club to start earning points.',NULL,NULL,'System Admin','all','2026-03-19 23:40:43'),(3,'NSS Blood Donation Camp','Registrations are now open! Please register before April 10th.',1,1,'B24CS001','all','2026-03-19 23:40:43'),(4,'IEEE Hackathon 2026','Get ready for the biggest coding event of the year! Form teams of 3-4 members.',2,4,'B24AIM001','all','2026-03-19 23:40:43'),(5,'Literary Club Meeting','All members are requested to attend the monthly meeting on April 5th at 4 PM.',3,NULL,'B24CS002','all','2026-03-19 23:40:43'),(6,'meeting ','on friday 4pm',8,NULL,'B24CS001','all','2026-03-21 14:05:15');
 /*!40000 ALTER TABLE `announcements` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -167,7 +168,7 @@ CREATE TABLE `clubs` (
   PRIMARY KEY (`club_id`),
   KEY `faculty_incharge` (`faculty_incharge`),
   CONSTRAINT `clubs_ibfk_1` FOREIGN KEY (`faculty_incharge`) REFERENCES `faculty` (`faculty_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -176,7 +177,7 @@ CREATE TABLE `clubs` (
 
 LOCK TABLES `clubs` WRITE;
 /*!40000 ALTER TABLE `clubs` DISABLE KEYS */;
-INSERT INTO `clubs` VALUES (1,'NSS','Social Service',2,'2024-01-15','Active',NULL),(2,'IEEE MACE','Technical',4,'2024-01-15','Active',NULL),(3,'Literary and Debating Club','Cultural',3,'2024-01-15','Active',NULL),(4,'Dance Club','Cultural',6,'2024-01-15','Active',NULL),(5,'Sports and Games Association','Sports',7,'2024-01-15','Active',NULL),(6,'SAE MACE','Technical',5,'2024-01-15','Active',NULL),(7,'ISTE MACE','Technical',15,'2024-01-15','Active',NULL),(8,'MACE Film Society','Film',8,'2024-01-15','Active',NULL),(9,'ASME MACE','Technical',5,'2024-01-15','Active',NULL),(10,'MACE NetX Club','Technical',9,'2024-01-15','Active',NULL),(11,'Divaat Club','Arts',10,'2024-01-15','Active',NULL),(12,'MACE MUN','Academic',11,'2024-01-15','Active',NULL),(13,'AISA MACE','Technical',9,'2024-01-15','Active',NULL),(14,'Quiz Club','Academic',12,'2024-01-15','Active',NULL),(15,'Music Club','Cultural',13,'2024-01-15','Active',NULL),(16,'ASCE MACE','Technical',3,'2024-01-15','Active',NULL),(17,'ENCIDE MACE','Technical',9,'2024-01-15','Active',NULL),(18,'ENCON Club','Environmental',4,'2024-01-15','Active',NULL),(19,'Developers Students Club (DSC)','Technical',9,'2024-01-15','Active',NULL);
+INSERT INTO `clubs` VALUES (1,'NSS','Social Service',2,'2024-01-15','Active',NULL),(2,'IEEE MACE','Technical',4,'2024-01-15','Active',NULL),(3,'Literary and Debating Club','Cultural',NULL,'2024-01-15','Active',NULL),(4,'Dance Club','Cultural',6,'2024-01-15','Active',NULL),(5,'Sports and Games Association','Sports',7,'2024-01-15','Active',NULL),(6,'SAE MACE','Technical',5,'2024-01-15','Active',NULL),(7,'ISTE MACE','Technical',15,'2024-01-15','Active',NULL),(8,'MACE Film Society','Film',8,'2024-01-15','Active',NULL),(9,'ASME MACE','Technical',5,'2024-01-15','Active',NULL),(10,'MACE NetX Club','Technical',9,'2024-01-15','Active',NULL),(11,'Divaat Club','Arts',10,'2024-01-15','Active',NULL),(12,'MACE MUN','Academic',11,'2024-01-15','Active',NULL),(13,'AISA MACE','Technical',9,'2024-01-15','Active',NULL),(14,'Quiz Club','Academic',12,'2024-01-15','Active',NULL),(15,'Music Club','Cultural',13,'2024-01-15','Active',NULL),(16,'ASCE MACE','Technical',3,'2024-01-15','Active',NULL),(17,'ENCIDE MACE','Technical',9,'2024-01-15','Active',NULL),(18,'ENCON Club','Environmental',4,'2024-01-15','Active',NULL),(19,'Developers Students Club (DSC)','Technical',9,'2024-01-15','Active',NULL);
 /*!40000 ALTER TABLE `clubs` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -292,7 +293,7 @@ CREATE TABLE `faculty` (
   `photo` varchar(500) DEFAULT NULL,
   PRIMARY KEY (`faculty_id`),
   UNIQUE KEY `email` (`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -301,7 +302,7 @@ CREATE TABLE `faculty` (
 
 LOCK TABLES `faculty` WRITE;
 /*!40000 ALTER TABLE `faculty` DISABLE KEYS */;
-INSERT INTO `faculty` VALUES (1,'Prof. Joby George','joby.george@mace.ac.in','CS',NULL,'123','HOD+coordinator',NULL),(2,'Dr. Aji Joy','aji.joy@mace.ac.in','EC',NULL,'123','HOD',NULL),(3,'Dr. Elson John','elson.john@mace.ac.in','CE',NULL,'123','faculty',NULL),(4,'Dr. Siny Paul','siny.paul@mace.ac.in','EE',NULL,'123','faculty',NULL),(5,'Dr. Soni Kuriakose','soni.kuriakose@mace.ac.in','ME',NULL,'123','faculty',NULL),(6,'Prof. Nithin Eldho Subash','nithin.subash@mace.ac.in','CE','S4CE','123','faculty',NULL),(7,'Mr. Binu Varghese','binu.varghese@mace.ac.in','ME',NULL,'123','faculty',NULL),(8,'Dr. Reenu George','reenu.george@mace.ac.in','CS','S6CS','123','FA+coordinator',NULL),(9,'Prof. Eldo P Elias','eldo.elias@mace.ac.in','CS','S2CS','123','faculty',NULL),(10,'Dr. Kurian John','kurian.john@mace.ac.in','ME','S4ME','123','faculty',NULL),(11,'Dr. Deepak Eldho Babu','deepak.babu@mace.ac.in','EC','S4EC','123','faculty',NULL),(12,'Dr. Joby Joseph','joby.joseph@mace.ac.in','CS','S6AIM','123','faculty',NULL),(13,'Dr. Vinod Yeldho Baby','vinod.baby@mace.ac.in','EC',NULL,'123','faculty',NULL),(14,'Dr Test','test@mace.ac.in','CS','S4CS','123','FA',NULL),(15,'Dr Test+club+class','test1@mace.ac.in','CS','S4CS','123','FA+coordinator',NULL);
+INSERT INTO `faculty` VALUES (1,'Prof. Joby George','joby.george@mace.ac.in','CS',NULL,'123','HOD+coordinator',NULL),(2,'Dr. Aji Joy','aji.joy@mace.ac.in','EC',NULL,'123','HOD',NULL),(3,'Dr. Elson John','elson.john@mace.ac.in','CE',NULL,'123','faculty',NULL),(4,'Dr. Siny Paul','siny.paul@mace.ac.in','EE',NULL,'123','faculty',NULL),(5,'Dr. Soni Kuriakose','soni.kuriakose@mace.ac.in','ME',NULL,'123','faculty',NULL),(6,'Prof. Nithin Eldho Subash','nithin.subash@mace.ac.in','CE','S4CE','123','faculty',NULL),(7,'Mr. Binu Varghese','binu.varghese@mace.ac.in','ME',NULL,'123','faculty',NULL),(8,'Dr. Reenu George','reenu.george@mace.ac.in','CS','S6CS','123','FA+coordinator',NULL),(9,'Prof. Eldo P Elias','eldo.elias@mace.ac.in','CS','S1CE','123','FA+coordinator',NULL),(10,'Dr. Kurian John','kurian.john@mace.ac.in','ME','S4ME','123','faculty',NULL),(11,'Dr. Deepak Eldho Babu','deepak.babu@mace.ac.in','EC','S4EC','123','faculty',NULL),(12,'Dr. Joby Joseph','joby.joseph@mace.ac.in','CS','S6AIM','123','faculty',NULL),(13,'Dr. Vinod Yeldho Baby','vinod.baby@mace.ac.in','EC',NULL,'123','faculty',NULL),(14,'Dr Test','test@mace.ac.in','CS','S4CS','123','FA',NULL),(15,'Dr Test+club+class','test1@mace.ac.in','CS','S4CS','123','FA+coordinator',NULL),(16,'Dr hello','hello@mace.ac.in','CD','-','faculty123','faculty','faculty_hello_1774177838.jpg'),(17,'js','js@mace.ac.in','ME','-','faculty123','faculty',NULL);
 /*!40000 ALTER TABLE `faculty` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -380,4 +381,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-03-21 16:15:52
+-- Dump completed on 2026-03-22 17:11:28

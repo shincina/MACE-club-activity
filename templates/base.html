@@ -257,24 +257,17 @@
     {% elif session.role == 'admin' %}
 
       <div class="menu-section">Main</div>
-      <a href="{{ url_for('admin_dashboard') }}"
-         class="{% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
-        <i class="fas fa-home"></i> Dashboard
-      </a>
+<a href="{{ url_for('admin_dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+<div class="menu-section">Management</div>
+<a href="{{ url_for('admin_departments') }}"><i class="fas fa-building"></i> Departments</a>
+<a href="{{ url_for('admin_students') }}"><i class="fas fa-user-graduate"></i> Students</a>
+<a href="{{ url_for('admin_faculty') }}"><i class="fas fa-chalkboard-teacher"></i> Faculty</a>
+<a href="{{ url_for('admin_clubs') }}"><i class="fas fa-users"></i> Clubs</a>
+<a href="{{ url_for('admin_memberships') }}" ><i class="fas fa-user-check"></i> Memberships</a>
+<a href="{{ url_for('admin_events') }}"><i class="fas fa-calendar-alt"></i> Events</a>
+<div class="menu-section">Reports</div>
+<a href="{{ url_for('admin_announcements') }}"><i class="fas fa-bullhorn"></i> Announcements</a>
 
-      <div class="menu-section">Management</div>
-      <a href="{{ url_for('admin_dashboard') }}">
-        <i class="fas fa-users"></i> Students
-      </a>
-      <a href="{{ url_for('admin_dashboard') }}">
-        <i class="fas fa-chalkboard-teacher"></i> Faculty
-      </a>
-      <a href="{{ url_for('admin_dashboard') }}">
-        <i class="fas fa-shield-alt"></i> Clubs
-      </a>
-      <a href="{{ url_for('admin_dashboard') }}">
-        <i class="fas fa-calendar-alt"></i> Events
-      </a>
 
     {% endif %}
 

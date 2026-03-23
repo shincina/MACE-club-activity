@@ -13,7 +13,7 @@ app.secret_key = app.config.get('SECRET_KEY', 'your-secret-key-change-this-in-pr
 
 mysql = MySQL(app)
 
-ALLOWED_EXTENSIONS = app.config.get('ALLOWED_EXTENSIONS', {'pdf', 'png', 'jpg', 'jpeg'})
+ALLOWED_EXTENSIONS = app.config.get('ALLOWED_EXTENSIONS', {'png', 'jpg', 'jpeg'})
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -43,8 +43,18 @@ def role_required(*roles):
 # ─────────────────────────────────────────
 
 @app.route('/uploads/<path:filename>')
-@login_required
 def serve_upload(filename):
+    import os
+
+    full_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+    print("==== DEBUG ====")
+    print("UPLOAD_FOLDER:", app.config['UPLOAD_FOLDER'])
+    print("Requested:", filename)
+    print("Full path:", full_path)
+    print("Exists:", os.path.exists(full_path))
+    print("================")
+
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 # ─────────────────────────────────────────
@@ -491,31 +501,44 @@ def upload_certificate():
     if request.method == 'GET':
         return render_template('student/upload_certificate.html')
 
-    if 'certificate' not in request.files:
+    # ✅ match the form's name="certificate_file"
+    if 'certificate_file' not in request.files:
         flash('No file selected.', 'error')
         return redirect(url_for('upload_certificate'))
 
-    file              = request.files['certificate']
-    activity_category = request.form.get('activity_type')
+    file              = request.files['certificate_file']
+    # ✅ match the form's name="activity_category"
+    activity_category = request.form.get('activity_category')
+    cert_type         = request.form.get('certificate_type', 'self_initiative')
 
     if file.filename == '':
         flash('No file selected.', 'error')
         return redirect(url_for('upload_certificate'))
 
-    if file and allowed_file(file.filename):
-        filename = secure_filename(f"{session['user_id']}_{int(datetime.now().timestamp())}_{file.filename}")
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
+    # ✅ images only
+    ALLOWED = {'png', 'jpg', 'jpeg', 'webp'}
+    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+
+    if ext in ALLOWED:
+        filename = secure_filename(
+            f"{session['user_id']}_{int(datetime.now().timestamp())}.{ext}"
+        )
+        certs_folder = os.path.join(app.config['UPLOAD_FOLDER'], 'certificates')
+        os.makedirs(certs_folder, exist_ok=True)
+        file.save(os.path.join(certs_folder, filename))
+
         cursor = mysql.connection.cursor()
         cursor.execute('''
-            INSERT INTO certificates (student_id, certificate_type, file_path, status, activity_category)
-            VALUES (%s, 'self_initiative', %s, 'pending', %s)
-        ''', (session['user_id'], filename, activity_category))
+            INSERT INTO certificates
+                (student_id, certificate_type, file_path, status, activity_category)
+            VALUES (%s, %s, %s, 'pending', %s)
+        ''', (session['user_id'], cert_type, f'certificates/{filename}', activity_category))
         mysql.connection.commit()
         cursor.close()
         flash('Certificate uploaded successfully!', 'success')
     else:
-        flash('Invalid file type. Allowed: pdf, png, jpg, jpeg.', 'error')
+        flash('Invalid file type. Only JPG, PNG, WEBP allowed.', 'error')
+        return redirect(url_for('upload_certificate'))
 
     return redirect(url_for('my_certificates'))
 
@@ -698,7 +721,7 @@ def faculty_clubs():
     club_members = {}
     for club in clubs:
         cursor.execute('''
-            SELECT m.*, s.name, s.reg_no, s.email, s.semester, s.total_points, d.dept_name
+            SELECT m.*, s.name, s.reg_no, s.email, s.photo , s.semester, s.total_points, d.dept_name
             FROM membership m
             JOIN students s ON m.student_id = s.reg_no
             LEFT JOIN departments d ON s.dept_id = d.dept_id
@@ -821,7 +844,7 @@ def faculty_membership_approvals():
         params.append(status_filter)
 
     cursor.execute(f'''
-        SELECT m.*, s.name AS student_name, s.reg_no, d.dept_name, c.club_name
+        SELECT m.*, s.name AS student_name, s.reg_no, s.photo , d.dept_name, c.club_name
         FROM membership m
         JOIN students s   ON m.student_id    = s.reg_no
         JOIN clubs c      ON m.club_id       = c.club_id
@@ -862,7 +885,7 @@ def faculty_validation():
         params.append(status_filter)
 
     cursor.execute(f'''
-        SELECT e.*, c.club_name,
+        SELECT e.*, c.club_name, e.photo , 
             (SELECT COUNT(*) FROM event_attendance WHERE event_id = e.event_id) AS participant_count
         FROM events e JOIN clubs c ON e.club_id = c.club_id
         WHERE {' AND '.join(conditions)} ORDER BY e.event_date ASC
@@ -924,49 +947,143 @@ def faculty_reject_event(event_id):
     return redirect(url_for('faculty_dashboard'))
 
 
-@app.route('/faculty/verify_certificate/<int:certificate_id>', methods=['GET', 'POST'])
+# Faculty certificate verification route - FIXED VERSION
+# This handles both self-initiative and event certificates properly
+
+@app.route('/faculty/verify_certificate/<int:certificate_id>', methods=['POST'])
 @login_required
 @role_required('faculty')
 def faculty_verify_certificate(certificate_id):
+    """
+    Verify and approve a certificate
+    - For self-initiative: awards custom points from request
+    - For events: checks attendance first, then awards event points or custom points
+    """
     cursor = mysql.connection.cursor()
-    cursor.execute('SELECT * FROM certificates WHERE certificate_id = %s', (certificate_id,))
-    cert = cursor.fetchone()
+    
+    try:
+        # Get certificate details
+        cursor.execute('''
+            SELECT c.*, e.points as event_points, e.event_name,
+                   ea.attendance_status
+            FROM certificates c
+            LEFT JOIN events e ON c.event_id = e.event_id
+            LEFT JOIN event_attendance ea ON (c.event_id = ea.event_id AND c.student_id = ea.student_id)
+            WHERE c.certificate_id = %s
+        ''', (certificate_id,))
+        
+        cert = cursor.fetchone()
+        
+        if not cert:
+            return jsonify({'success': False, 'message': 'Certificate not found'}), 404
+        
+        if cert['status'] != 'pending':
+            return jsonify({'success': False, 'message': 'Certificate already processed'}), 400
+        
+        student_id = cert['student_id']
+        certificate_type = cert['certificate_type']
+        
+        # Get points from request (for self-initiative or manual event points)
+        data = request.get_json() or {}
+        custom_points = data.get('points', 0)
+        
+        # Determine points to award based on certificate type
+        if certificate_type == 'self_initiative':
+            # Self-initiative: use custom points from modal
+            points_to_award = int(custom_points) if custom_points else 5
+            description = f"Self-initiative: {cert['activity_category']}"
+            
+        else:
+            # Event certificate: check attendance first
+            if not cert['event_id']:
+                return jsonify({'success': False, 'message': 'Event not found for certificate'}), 400
+            
+            # Check if student attended the event
+            if cert['attendance_status'] != 'present':
+                return jsonify({
+                    'success': False, 
+                    'message': f'Student was {cert["attendance_status"] or "absent"} for this event. Cannot approve certificate.'
+                }), 400
+            
+            # Use custom points if provided, otherwise use event points
+            points_to_award = int(custom_points) if custom_points else (cert['event_points'] or 0)
+            description = f"Event participation: {cert['event_name']}"
+        
+        # Update certificate status
+        cursor.execute('''
+            UPDATE certificates 
+            SET status = 'approved',
+                points_awarded = %s,
+                verified_by = %s
+            WHERE certificate_id = %s
+        ''', (points_to_award, session['user_id'], certificate_id))
+        
+        # Add activity points record
+        cursor.execute('''
+            INSERT INTO activity_points 
+            (student_id, event_id, certificate_id, points, description, date_awarded)
+            VALUES (%s, %s, %s, %s, %s, NOW())
+        ''', (student_id, cert['event_id'], certificate_id, points_to_award, description))
+        
+        # Update student's total points
+        cursor.execute('''
+            UPDATE students 
+            SET total_points = total_points + %s
+            WHERE reg_no = %s
+        ''', (points_to_award, student_id))
+        
+        mysql.connection.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Certificate approved successfully',
+            'points': points_to_award
+        }), 200
+        
+    except Exception as e:
+        mysql.connection.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+        
+    finally:
+        cursor.close()
 
-    custom_points = None
-    if request.is_json:
-        custom_points = request.get_json().get('points')
 
-    points_map = {'internship': 20, 'industrial_visit': 15, 'nptel': 5, 'competition_win': 5}
-    points = custom_points if custom_points else points_map.get(cert['activity_category'], 5)
-
-    cursor.execute("UPDATE certificates SET status='approved', verified_by=%s, points_awarded=%s WHERE certificate_id=%s",
-                   (session['user_id'], points, certificate_id))
-    cursor.execute("INSERT INTO activity_points (student_id, event_id, certificate_id, points, description) VALUES (%s,%s,%s,%s,%s)",
-                   (cert['student_id'], cert['event_id'], certificate_id, points, f"{cert['activity_category']} - Verified"))
-    cursor.execute("UPDATE students SET total_points = total_points + %s WHERE reg_no = %s",
-                   (points, cert['student_id']))
-    mysql.connection.commit()
-    cursor.close()
-    flash(f'Certificate approved! {points} points awarded.', 'success')
-    if request.method == 'POST':
-        return jsonify({'success': True, 'points': points})
-    return redirect(url_for('faculty_dashboard'))
-
-
-@app.route('/faculty/reject_certificate/<int:certificate_id>', methods=['GET', 'POST'])
+@app.route('/faculty/reject_certificate/<int:certificate_id>', methods=['POST'])
 @login_required
 @role_required('faculty')
 def faculty_reject_certificate(certificate_id):
+    """Reject a certificate"""
     cursor = mysql.connection.cursor()
-    cursor.execute("UPDATE certificates SET status='rejected', verified_by=%s WHERE certificate_id=%s",
-                   (session['user_id'], certificate_id))
-    mysql.connection.commit()
-    cursor.close()
-    flash('Certificate rejected.', 'success')
-    if request.method == 'POST':
-        return jsonify({'success': True})
-    return redirect(url_for('faculty_dashboard'))
-
+    
+    try:
+        # Check if certificate exists and is pending
+        cursor.execute('SELECT status FROM certificates WHERE certificate_id = %s', (certificate_id,))
+        cert = cursor.fetchone()
+        
+        if not cert:
+            return jsonify({'success': False, 'message': 'Certificate not found'}), 404
+        
+        if cert['status'] != 'pending':
+            return jsonify({'success': False, 'message': 'Certificate already processed'}), 400
+        
+        # Update certificate status
+        cursor.execute('''
+            UPDATE certificates 
+            SET status = 'rejected',
+                verified_by = %s
+            WHERE certificate_id = %s
+        ''', (session['user_id'], certificate_id))
+        
+        mysql.connection.commit()
+        
+        return jsonify({'success': True, 'message': 'Certificate rejected'}), 200
+        
+    except Exception as e:
+        mysql.connection.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+        
+    finally:
+        cursor.close()
 
 @app.route('/faculty/class')
 @login_required
@@ -1093,7 +1210,7 @@ def faculty_class_certificates():
             params.append(status_filter)
 
         cursor.execute(f'''
-            SELECT cert.*, s.name AS student_name, s.reg_no, s.semester, e.event_name, c.club_name
+            SELECT cert.*, s.name AS student_name, s.reg_no, s.semester, s.photo , e.event_name, c.club_name
             FROM certificates cert
             JOIN students s ON cert.student_id = s.reg_no
             LEFT JOIN events e ON cert.event_id = e.event_id
@@ -1216,10 +1333,11 @@ def coordinator_my_events():
         flash('Access denied.', 'error')
         return redirect(url_for('student_dashboard'))
 
-    reg_no        = session['user_id']
+    reg_no       = session['user_id']
     selected_club = request.args.get('club', None)
     cursor        = mysql.connection.cursor()
 
+    # Get all clubs this student coordinates
     cursor.execute('''
         SELECT c.club_id, c.club_name FROM clubs c
         JOIN membership m ON m.club_id = c.club_id
@@ -1227,74 +1345,81 @@ def coordinator_my_events():
     ''', (reg_no,))
     coord_clubs = cursor.fetchall()
 
-    conditions = ['m.student_id = %s', 'm.role = "coordinator"', 'm.status = "approved"', 'e.status = "approved"']
+    conditions = ['m.student_id = %s', 'm.role = "coordinator"', 'm.status = "approved"']
     params     = [reg_no]
     if selected_club:
-        conditions.append('c.club_id = %s')
+        conditions.append('e.club_id = %s')
         params.append(selected_club)
 
     cursor.execute(f'''
-        SELECT e.*,
-            c.club_name,
-            (SELECT COUNT(*) FROM event_attendance WHERE event_id = e.event_id) AS participant_count,
-            CASE
-                WHEN e.event_date < CURDATE() THEN 'archived'
-                WHEN e.event_date = CURDATE() THEN 'ongoing'
-                ELSE 'upcoming'
-            END AS phase
+        SELECT e.*, c.club_name,
+            (SELECT COUNT(*) FROM event_attendance WHERE event_id = e.event_id) AS participant_count
         FROM events e
-        JOIN clubs c      ON e.club_id = c.club_id
+        JOIN clubs c ON e.club_id = c.club_id
         JOIN membership m ON m.club_id = c.club_id
-        WHERE {' AND '.join(conditions)}
-        ORDER BY FIELD(phase,'ongoing','upcoming','archived'), e.event_date ASC
+        WHERE {' AND '.join(conditions)} AND e.status = 'approved'
+        ORDER BY e.event_date DESC
     ''', params)
-    events = cursor.fetchall()
+    raw_events = cursor.fetchall()
     cursor.close()
 
-    serializable = []
-    for e in events:
+    from datetime import date
+    today  = date.today()
+    events = []
+    for e in raw_events:
         row = dict(e)
+        # Convert non-serializable types
         for k, v in row.items():
-            if hasattr(v, 'isoformat'):
-                row[k] = v.isoformat()
+            if hasattr(v, 'isoformat'):      row[k] = v.isoformat()
             elif hasattr(v, 'total_seconds'):
                 t = int(v.total_seconds()); h, r = divmod(t, 3600); m, _ = divmod(r, 60)
                 row[k] = f"{h:02d}:{m:02d}"
-        serializable.append(row)
+
+        # Phase classification
+        ev_date = date.fromisoformat(row['event_date']) if row['event_date'] else None
+        if ev_date:
+            if ev_date < today:
+                row['phase'] = 'archived'
+            elif ev_date == today:
+                row['phase'] = 'ongoing'
+            else:
+                row['phase'] = 'upcoming'
+        else:
+            row['phase'] = 'upcoming'
+
+        events.append(row)
 
     return render_template('coordinator/my_events.html',
-        events=serializable, coord_clubs=coord_clubs, selected_club=selected_club)
-
+        events=events, coord_clubs=coord_clubs, selected_club=selected_club)
 
 @app.route('/coordinator/event_participants/<int:event_id>')
 @login_required
 @role_required('student')
-def coordinator_event_participants(event_id):
-    if not session.get('is_coordinator'):
-        return jsonify([])
+def event_participants(event_id):
     cursor = mysql.connection.cursor()
     cursor.execute('''
-        SELECT ea.student_id, ea.attendance_status, s.name, s.reg_no, d.dept_name
+        SELECT ea.student_id, ea.attendance_status, ea.payment_status,
+               s.name, s.reg_no, s.semester, d.dept_name
         FROM event_attendance ea
-        JOIN students s    ON ea.student_id = s.reg_no
+        JOIN students s ON ea.student_id = s.reg_no
         LEFT JOIN departments d ON s.dept_id = d.dept_id
         WHERE ea.event_id = %s
         ORDER BY s.name
     ''', (event_id,))
-    rows = cursor.fetchall()
+    students = cursor.fetchall()
     cursor.close()
-    return jsonify(rows)
+    return jsonify(students)
 
 
 @app.route('/coordinator/save_attendance/<int:event_id>', methods=['POST'])
 @login_required
 @role_required('student')
-def coordinator_save_attendance(event_id):
+def save_attendance(event_id):
     if not session.get('is_coordinator'):
-        return jsonify({'success': False})
+        return jsonify({'success': False}), 403
 
     data       = request.get_json()
-    attendance = data.get('attendance', {})
+    attendance = data.get('attendance', {})  # { student_id: true/false }
     cursor     = mysql.connection.cursor()
 
     for student_id, is_present in attendance.items():
@@ -1305,40 +1430,9 @@ def coordinator_save_attendance(event_id):
             WHERE event_id = %s AND student_id = %s
         ''', (status, event_id, student_id))
 
-        if is_present:
-            cursor.execute('SELECT e.points FROM events e WHERE e.event_id = %s', (event_id,))
-            event = cursor.fetchone()
-            if event:
-                cursor.execute('''
-                    SELECT activity_point_id FROM activity_points
-                    WHERE student_id = %s AND event_id = %s
-                ''', (student_id, event_id))
-                if not cursor.fetchone():
-                    cursor.execute('''
-                        INSERT INTO activity_points (student_id, event_id, points, description)
-                        VALUES (%s, %s, %s, %s)
-                    ''', (student_id, event_id, event['points'], 'Event attendance'))
-                    cursor.execute('''
-                        UPDATE students SET total_points = total_points + %s WHERE reg_no = %s
-                    ''', (event['points'], student_id))
-        else:
-            cursor.execute('''
-                SELECT points FROM activity_points
-                WHERE student_id = %s AND event_id = %s
-            ''', (student_id, event_id))
-            existing = cursor.fetchone()
-            if existing:
-                cursor.execute('''
-                    DELETE FROM activity_points WHERE student_id = %s AND event_id = %s
-                ''', (student_id, event_id))
-                cursor.execute('''
-                    UPDATE students SET total_points = total_points - %s WHERE reg_no = %s
-                ''', (existing['points'], student_id))
-
     mysql.connection.commit()
     cursor.close()
     return jsonify({'success': True})
-
 
 @app.route('/coordinator/members')
 @login_required
@@ -1363,7 +1457,7 @@ def coordinator_members():
     club_members = {}
     for club in coord_clubs:
         cursor.execute('''
-            SELECT m.role, s.name, s.reg_no, s.semester, s.total_points, d.dept_name
+            SELECT m.role, s.name, s.reg_no, s.semester, s.total_points, s.photo , d.dept_name
             FROM membership m
             JOIN students s     ON m.student_id = s.reg_no
             LEFT JOIN departments d ON s.dept_id = d.dept_id
@@ -1468,26 +1562,74 @@ def admin_students():
         action = request.form.get('action')
 
         if action == 'add':
+            batch_year = request.form.get('batch_year', '').strip()
+            dept_id    = request.form['dept_id']
+
+            # Get dept code
+            cursor.execute('SELECT dept_code FROM departments WHERE dept_id = %s', (dept_id,))
+            dept = cursor.fetchone()
+            dept_code = dept['dept_code']
+
+            # Find next number for this batch+dept combo
+            prefix = f'B{batch_year}{dept_code}'
             cursor.execute('''
-                INSERT INTO students (reg_no, name, email, phone, semester, dept_id, password)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                SELECT reg_no FROM students
+                WHERE reg_no LIKE %s
+                ORDER BY reg_no DESC LIMIT 1
+            ''', (f'{prefix}%',))
+            last = cursor.fetchone()
+
+            if last:
+                last_num = int(last['reg_no'].replace(prefix, ''))
+                next_num = last_num + 1
+            else:
+                next_num = 1
+
+            reg_no = f'{prefix}{next_num:03d}'  # e.g. B24CS001
+
+            # Handle photo upload
+            photo_filename = None
+            if 'photo' in request.files and request.files['photo'].filename:
+                file = request.files['photo']
+                if allowed_file(file.filename):
+                    ext = file.filename.rsplit('.', 1)[1].lower()
+                    photo_filename = secure_filename(
+                        f"student_{reg_no}_{int(datetime.now().timestamp())}.{ext}"
+                    )
+                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
+
+            cursor.execute('''
+                INSERT INTO students (reg_no, name, email, phone, semester, dept_id, password, photo)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             ''', (
-                request.form['reg_no'], request.form['name'],
-                request.form['email'],  request.form.get('phone', ''),
-                request.form['semester'], request.form['dept_id'],
-                request.form['password']
+                reg_no, request.form['name'], request.form['email'],
+                request.form.get('phone', ''), request.form['semester'],
+                dept_id, request.form['password'], photo_filename
             ))
             mysql.connection.commit()
-            flash('Student added successfully!', 'success')
+            flash(f'Student added! Reg No: {reg_no}', 'success')
 
         elif action == 'edit':
-            cursor.execute('''
-                UPDATE students SET name=%s, email=%s, phone=%s, semester=%s, dept_id=%s
+            photo_update = ''
+            photo_params = []
+            if 'photo' in request.files and request.files['photo'].filename:
+                file = request.files['photo']
+                if allowed_file(file.filename):
+                    ext = file.filename.rsplit('.', 1)[1].lower()
+                    photo_filename = secure_filename(
+                        f"student_{request.form['reg_no']}_{int(datetime.now().timestamp())}.{ext}"
+                    )
+                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
+                    photo_update = ', photo = %s'
+                    photo_params = [photo_filename]
+
+            cursor.execute(f'''
+                UPDATE students SET name=%s, email=%s, phone=%s, semester=%s, dept_id=%s {photo_update}
                 WHERE reg_no=%s
             ''', (
                 request.form['name'], request.form['email'],
                 request.form.get('phone', ''), request.form['semester'],
-                request.form['dept_id'], request.form['reg_no']
+                request.form['dept_id'], *photo_params, request.form['reg_no']
             ))
             mysql.connection.commit()
             flash('Student updated successfully!', 'success')
@@ -1505,6 +1647,7 @@ def admin_students():
         cursor.close()
         return redirect(url_for('admin_students'))
 
+    # Fetch students
     cursor.execute('''
         SELECT s.*, d.dept_name FROM students s
         LEFT JOIN departments d ON s.dept_id = d.dept_id
@@ -1515,9 +1658,42 @@ def admin_students():
     cursor.execute('SELECT * FROM departments ORDER BY dept_name')
     departments = cursor.fetchall()
 
-    cursor.close()
-    return render_template('admin/student.html', students=students, departments=departments)
+    # Pre-calculate next number per dept for current year (for JS preview)
+    # Uses current year by default but JS updates it live
+    import datetime as dt
+    current_year = str(dt.datetime.now().year)[2:]  # '25' for 2025
+    next_numbers = {}
+    for d in departments:
+        prefix = f'B{current_year}{d["dept_code"]}'
+        cursor.execute('''
+            SELECT reg_no FROM students WHERE reg_no LIKE %s
+            ORDER BY reg_no DESC LIMIT 1
+        ''', (f'{prefix}%',))
+        last = cursor.fetchone()
+        next_numbers[d['dept_id']] = f'{(int(last["reg_no"].replace(prefix,"")) + 1):03d}' if last else '001'
 
+    cursor.close()
+    return render_template('admin/students.html',
+        students=students, departments=departments, next_numbers=next_numbers,
+        current_year=current_year)
+@app.route('/api/next_reg_no')
+@login_required
+@role_required('admin')
+def api_next_reg_no():
+    year    = request.args.get('year', '')
+    dept_id = request.args.get('dept_id', '')
+    cursor  = mysql.connection.cursor()
+    cursor.execute('SELECT dept_code FROM departments WHERE dept_id = %s', (dept_id,))
+    dept = cursor.fetchone()
+    if not dept:
+        return jsonify({'reg_no': ''})
+    prefix = f'B{year}{dept["dept_code"]}'
+    cursor.execute('SELECT reg_no FROM students WHERE reg_no LIKE %s ORDER BY reg_no DESC LIMIT 1',
+                   (f'{prefix}%',))
+    last = cursor.fetchone()
+    next_num = (int(last['reg_no'].replace(prefix, '')) + 1) if last else 1
+    cursor.close()
+    return jsonify({'reg_no': f'{prefix}{next_num:03d}', 'next': f'{next_num:03d}'})
 
 @app.route('/admin/faculty', methods=['GET', 'POST'])
 @login_required
@@ -1528,46 +1704,135 @@ def admin_faculty():
     if request.method == 'POST':
         action = request.form.get('action')
 
+        # ── ADD ──────────────────────────────────────────────────────
         if action == 'add':
-            cursor.execute('''
-                INSERT INTO faculty (faculty_name, email, department, class_incharge, password, role)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            ''', (
-                request.form['faculty_name'], request.form['email'],
-                request.form['department'],   request.form.get('class_incharge') or None,
-                request.form['password'],     request.form.get('role', 'faculty')
-            ))
-            mysql.connection.commit()
-            flash('Faculty added successfully!', 'success')
+            photo_filename = None
+            if 'photo' in request.files and request.files['photo'].filename:
+                file = request.files['photo']
+                if allowed_file(file.filename):
+                    ext = file.filename.rsplit('.', 1)[1].lower()
+                    photo_filename = secure_filename(
+                        f"faculty_{request.form['email'].split('@')[0]}_{int(datetime.now().timestamp())}.{ext}"
+                    )
+                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
 
+            cursor.execute('''
+                INSERT INTO faculty (faculty_name, email, department, class_incharge, password, role, photo)
+                VALUES (%s, %s, %s, '-', %s, 'faculty', %s)
+            ''', (request.form['faculty_name'], request.form['email'],
+                  request.form['department'], request.form['password'], photo_filename))
+            mysql.connection.commit()
+            flash('Faculty added!', 'success')
+
+        # ── EDIT ─────────────────────────────────────────────────────
         elif action == 'edit_faculty':
-            cursor.execute('''
-                UPDATE faculty SET faculty_name=%s, email=%s, department=%s,
-                    class_incharge=%s, role=%s
-                WHERE faculty_id=%s
-            ''', (
-                request.form['faculty_name'], request.form['email'],
-                request.form['department'],   request.form.get('class_incharge') or None,
-                request.form.get('role', 'faculty'), request.form['faculty_id']
-            ))
-            mysql.connection.commit()
-            flash('Faculty updated successfully!', 'success')
+            photo_update = ''
+            photo_params = []
+            if 'photo' in request.files and request.files['photo'].filename:
+                file = request.files['photo']
+                if allowed_file(file.filename):
+                    ext = file.filename.rsplit('.', 1)[1].lower()
+                    photo_filename = secure_filename(
+                        f"faculty_{request.form['faculty_id']}_{int(datetime.now().timestamp())}.{ext}"
+                    )
+                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
+                    photo_update = ', photo = %s'
+                    photo_params = [photo_filename]
 
+            cursor.execute(f'''
+                UPDATE faculty SET faculty_name=%s, email=%s, department=%s {photo_update}
+                WHERE faculty_id=%s
+            ''', (request.form['faculty_name'], request.form['email'],
+                  request.form['department'], *photo_params, request.form['faculty_id']))
+            mysql.connection.commit()
+            flash('Faculty updated!', 'success')
+
+        # ── DELETE ───────────────────────────────────────────────────
         elif action == 'delete_faculty':
             fid = request.form['faculty_id']
-            cursor.execute('UPDATE clubs SET faculty_incharge = NULL WHERE faculty_incharge = %s', (fid,))
-            cursor.execute('UPDATE certificates SET verified_by = NULL WHERE verified_by = %s', (fid,))
-            cursor.execute('DELETE FROM faculty WHERE faculty_id = %s', (fid,))
+            # Remove from club incharge
+            cursor.execute("UPDATE clubs SET faculty_incharge = NULL WHERE faculty_incharge = %s", (fid,))
+            cursor.execute("DELETE FROM faculty WHERE faculty_id = %s", (fid,))
             mysql.connection.commit()
             flash('Faculty deleted.', 'success')
+
+        # ── ASSIGN HOD ───────────────────────────────────────────────
+        elif action == 'assign_hod':
+            fid = request.form['faculty_id']
+            cursor.execute('SELECT role FROM faculty WHERE faculty_id = %s', (fid,))
+            f = cursor.fetchone()
+            current = (f['role'] or 'faculty').lower()
+            new_role = 'HOD+coordinator' if 'coordinator' in current else 'HOD'
+            cursor.execute('UPDATE faculty SET role = %s WHERE faculty_id = %s', (new_role, fid))
+            mysql.connection.commit()
+            flash('Faculty assigned as HOD!', 'success')
+
+        # ── ASSIGN FA ────────────────────────────────────────────────
+        elif action == 'assign_fa':
+            fid       = request.form['faculty_id']
+            semester  = request.form['semester']
+            dept_code = request.form['dept_code']
+            class_code = f"{semester}{dept_code}"
+
+            cursor.execute('SELECT role FROM faculty WHERE faculty_id = %s', (fid,))
+            f = cursor.fetchone()
+            current = (f['role'] or 'faculty').lower()
+            new_role = 'FA+coordinator' if 'coordinator' in current else 'FA'
+
+            cursor.execute('''
+                UPDATE faculty SET role = %s, class_incharge = %s WHERE faculty_id = %s
+            ''', (new_role, class_code, fid))
+            mysql.connection.commit()
+            flash(f'Faculty assigned as FA for class {class_code}!', 'success')
+
+        # ── ASSIGN CLUB ──────────────────────────────────────────────
+        elif action == 'assign_club':
+            fid     = request.form['faculty_id']
+            club_id = request.form['club_id']
+
+            cursor.execute('SELECT role FROM faculty WHERE faculty_id = %s', (fid,))
+            f = cursor.fetchone()
+            current = (f['role'] or 'faculty').lower()
+
+            if 'hod' in current:
+                new_role = 'HOD+coordinator'
+            elif 'fa' in current:
+                new_role = 'FA+coordinator'
+            else:
+                new_role = 'coordinator'
+
+            cursor.execute('UPDATE faculty SET role = %s WHERE faculty_id = %s', (new_role, fid))
+            cursor.execute('UPDATE clubs SET faculty_incharge = %s WHERE club_id = %s', (fid, club_id))
+            mysql.connection.commit()
+            flash('Club assigned successfully!', 'success')
+
+        # ── REMOVE ROLE ──────────────────────────────────────────────
+        elif action == 'remove_role':
+            fid = request.form['faculty_id']
+            # Remove from any clubs they were incharge of
+            cursor.execute("UPDATE clubs SET faculty_incharge = NULL WHERE faculty_incharge = %s", (fid,))
+            cursor.execute('''
+                UPDATE faculty SET role = 'faculty', class_incharge = '-'
+                WHERE faculty_id = %s
+            ''', (fid,))
+            mysql.connection.commit()
+            flash('Role removed. Faculty reset to regular faculty.', 'success')
 
         cursor.close()
         return redirect(url_for('admin_faculty'))
 
     cursor.execute('SELECT * FROM faculty ORDER BY faculty_name')
     faculty_list = cursor.fetchall()
+
+    cursor.execute('SELECT * FROM departments ORDER BY dept_name')
+    departments = cursor.fetchall()
+
+    cursor.execute('SELECT club_id, club_name, faculty_incharge FROM clubs WHERE status = "Active" ORDER BY club_name')
+    clubs = cursor.fetchall()
+
     cursor.close()
-    return render_template('admin/faculty.html', faculty_list=faculty_list)
+    return render_template('admin/faculty.html',
+        faculty_list=faculty_list, departments=departments, clubs=clubs)
 
 
 @app.route('/admin/departments', methods=['GET', 'POST'])
@@ -1593,36 +1858,52 @@ def admin_departments():
     cursor.close()
     return render_template('admin/department.html', departments=departments)
 
-
 @app.route('/admin/clubs', methods=['GET', 'POST'])
 @login_required
 @role_required('admin')
 def admin_clubs():
     cursor = mysql.connection.cursor()
-
+    
     if request.method == 'POST':
         action = request.form.get('action')
+        
         if action == 'add':
+            club_name = request.form.get('club_name')
+            club_type = request.form.get('club_type')
+            faculty_incharge = request.form.get('faculty_incharge')
+            
+            # Handle photo upload
+            photo_filename = None
+            if 'club_photo' in request.files:
+                file = request.files['club_photo']
+                if file and file.filename != '' and allowed_file(file.filename):
+                    photo_filename = secure_filename(f"club_{int(datetime.now().timestamp())}_{file.filename}")
+                    filepath = os.path.join(app.config['UPLOAD_FOLDER'], photo_filename)
+                    file.save(filepath)
+            
             cursor.execute('''
-                INSERT INTO clubs (club_name, club_type, faculty_incharge, created_date, status)
-                VALUES (%s, %s, %s, CURDATE(), 'Active')
-            ''', (request.form['club_name'], request.form['club_type'], request.form['faculty_incharge']))
+                INSERT INTO CLUBS (club_name, club_type, faculty_incharge, created_date, status, photo)
+                VALUES (%s, %s, %s, CURDATE(), 'Active', %s)
+            ''', (club_name, club_type, faculty_incharge, photo_filename))
             mysql.connection.commit()
-            flash('Club created!', 'success')
-        cursor.close()
-        return redirect(url_for('admin_clubs'))
-
+            flash('Club added successfully!', 'success')
+            cursor.close()
+            return redirect(url_for('admin_clubs'))
+    
+    # Fetch all clubs with faculty names and member counts
     cursor.execute('''
         SELECT c.*, f.faculty_name,
-            (SELECT COUNT(*) FROM membership WHERE club_id = c.club_id AND status = 'approved') AS members
-        FROM clubs c
-        LEFT JOIN faculty f ON c.faculty_incharge = f.faculty_id
-        ORDER BY c.club_name
+            (SELECT COUNT(*) FROM MEMBERSHIP WHERE club_id = c.club_id AND status = 'approved') AS members
+        FROM CLUBS c
+        LEFT JOIN FACULTY f ON c.faculty_incharge = f.faculty_id
+        ORDER BY c.club_id
     ''')
     clubs = cursor.fetchall()
-
-    cursor.execute('SELECT * FROM faculty ORDER BY faculty_name')
+    
+    # Fetch all faculty for dropdown
+    cursor.execute('SELECT faculty_id, faculty_name FROM FACULTY ORDER BY faculty_name')
     faculty_list = cursor.fetchall()
+    
     cursor.close()
     return render_template('admin/clubs.html', clubs=clubs, faculty_list=faculty_list)
 

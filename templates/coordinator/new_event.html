@@ -1,21 +1,38 @@
 {% extends 'base.html' %}
 {% block title %}Create Event — MACE{% endblock %}
+{% block sidebar %}{% endblock %}
 
 {% block content %}
 <style>
-  .fee-toggle-wrap {
-    display: flex; gap: 12px; margin-bottom: 12px;
-  }
-  .fee-opt {
-    flex: 1; padding: 14px 16px; border: 2px solid #e2e6ed;
-    border-radius: 10px; cursor: pointer; transition: all .15s;
-    display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600;
-  }
-  .fee-opt:hover { border-color: #6366f1; background: #f9fafb; }
-  .fee-opt.selected-free { border-color: #22c55e; background: #f0fdf4; color: #166534; }
-  .fee-opt.selected-paid { border-color: #6366f1; background: #eef2ff; color: #3730a3; }
-  .fee-opt input[type=radio] { accent-color: #6366f1; width: 16px; height: 16px; }
-  #feeAmountWrap { display: none; margin-top: 4px; }
+.fee-toggle-wrap { display:flex;gap:12px;margin-bottom:12px; }
+.fee-opt {
+  flex:1;padding:14px 16px;border:2px solid #e2e6ed;border-radius:10px;
+  cursor:pointer;transition:all .15s;display:flex;align-items:center;
+  gap:10px;font-size:14px;font-weight:600;
+}
+.fee-opt:hover { border-color:#6366f1;background:#f9fafb; }
+.fee-opt.selected-free { border-color:#22c55e;background:#f0fdf4;color:#166534; }
+.fee-opt.selected-paid { border-color:#6366f1;background:#eef2ff;color:#3730a3; }
+.fee-opt input[type=radio] { accent-color:#6366f1;width:16px;height:16px; }
+#feeAmountWrap { display:none;margin-top:4px; }
+
+/* Photo upload area */
+.photo-upload-area {
+  border: 2px dashed #e2e6ed; border-radius: 12px;
+  padding: 24px; text-align: center; cursor: pointer;
+  transition: all .2s; position: relative; overflow: hidden;
+  background: #fafbff;
+}
+.photo-upload-area:hover { border-color: var(--blue); background: #f0f4ff; }
+.photo-upload-area.has-image { border-style: solid; border-color: #22c55e; padding: 0; }
+.photo-upload-area input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%;
+}
+#photoPreviewImg {
+  width: 100%; max-height: 220px; object-fit: cover;
+  border-radius: 10px; display: none;
+}
+.upload-placeholder { pointer-events: none; }
 </style>
 
 <div class="page-header">
@@ -23,26 +40,49 @@
   <p>Submit an event for faculty approval</p>
 </div>
 
-<div class="form-card" style="max-width:640px;">
+<div class="form-card" style="max-width:680px;">
   <h3><i class="fas fa-calendar-plus" style="margin-right:8px;color:var(--gold)"></i>Event Details</h3>
 
-  <form method="POST">
+  <form method="POST" enctype="multipart/form-data">
 
+    <!-- Club selection -->
     <div class="form-group">
       <label>Club</label>
       <select name="club_id" required>
-        <option value="">-- Select Club --</option>
+        <option value="">— Select Club —</option>
         {% for club in coord_clubs %}
         <option value="{{ club.club_id }}">{{ club.club_name }}</option>
         {% endfor %}
       </select>
     </div>
 
+    <!-- Event name -->
     <div class="form-group">
       <label>Event Name</label>
       <input type="text" name="event_name" placeholder="e.g. Python Workshop 2024" required/>
     </div>
 
+    <!-- Event photo -->
+    <div class="form-group">
+      <label>Event Photo <span style="color:#94a3b8;font-weight:400;">(optional)</span></label>
+      <div class="photo-upload-area" id="photoArea" onclick="document.getElementById('eventPhoto').click()">
+        <input type="file" name="event_photo" id="eventPhoto"
+               accept="image/*" onchange="previewEventPhoto(this)">
+        <div class="upload-placeholder" id="photoPlaceholder">
+          <i class="fas fa-image" style="font-size:32px;color:#94a3b8;display:block;margin-bottom:10px;"></i>
+          <div style="font-size:13px;font-weight:600;color:#64748b;">Click to upload event banner</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">JPG, PNG — recommended 1200×600px</div>
+        </div>
+        <img id="photoPreviewImg" src="" alt="Event preview">
+      </div>
+      <button type="button" id="removePhotoBtn" onclick="removePhoto()"
+              style="display:none;margin-top:8px;background:none;border:none;
+                     color:#dc2626;font-size:12px;font-weight:600;cursor:pointer;">
+        <i class="fas fa-times"></i> Remove photo
+      </button>
+    </div>
+
+    <!-- Date + Time -->
     <div class="form-row">
       <div class="form-group">
         <label>Event Date</label>
@@ -54,16 +94,20 @@
       </div>
     </div>
 
+    <!-- Location -->
     <div class="form-group">
       <label>Location / Venue</label>
       <input type="text" name="location" placeholder="e.g. Seminar Hall, Block A" required/>
     </div>
 
+    <!-- Description -->
     <div class="form-group">
       <label>Description</label>
-      <textarea name="description" rows="4" placeholder="Brief description of the event..."></textarea>
+      <textarea name="description" rows="4"
+                placeholder="Brief description of the event, what attendees can expect..."></textarea>
     </div>
 
+    <!-- Participants + Points -->
     <div class="form-row">
       <div class="form-group">
         <label>Max Participants</label>
@@ -72,9 +116,9 @@
       <div class="form-group">
         <label>Activity Points</label>
         <select name="points" required>
-          <option value="5">5 Points — Workshop / Webinar / Hackathon</option>
-          <option value="15">15 Points — Industrial Visit</option>
-          <option value="20">20 Points — Internship</option>
+          <option value="5">5 pts — Workshop / Webinar / Hackathon</option>
+          <option value="15">15 pts — Industrial Visit</option>
+          <option value="20">20 pts — Internship</option>
         </select>
       </div>
     </div>
@@ -93,15 +137,18 @@
         </label>
       </div>
       <div id="feeAmountWrap">
-        <input type="number" name="reg_fee" id="regFeeInput" min="1" placeholder="Enter fee amount in ₹" style="width:100%;"/>
+        <input type="number" name="reg_fee" id="regFeeInput" min="1"
+               placeholder="Enter fee amount in ₹" style="width:100%;"/>
       </div>
-      <!-- hidden field always submitted; JS keeps it in sync -->
       <input type="hidden" name="reg_fee_final" id="regFeeFinal" value="0"/>
     </div>
 
-    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 16px;margin:16px 0;font-size:13px;color:#1e40af;">
+    <!-- Info notice -->
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;
+                padding:12px 16px;margin:16px 0;font-size:13px;color:#1e40af;">
       <i class="fas fa-info-circle" style="margin-right:6px;"></i>
-      Your event will be submitted as <strong>pending</strong> and must be approved by the club's faculty in-charge before students can register.
+      Your event will be submitted as <strong>pending</strong> and must be approved by
+      the club's faculty in-charge before students can register.
     </div>
 
     <div style="display:flex;gap:12px;margin-top:8px;">
@@ -110,10 +157,45 @@
       </button>
       <a href="{{ url_for('coordinator_dashboard') }}" class="btn btn-outline">Cancel</a>
     </div>
+
   </form>
 </div>
 
 <script>
+function previewEventPhoto(input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img  = document.getElementById('photoPreviewImg');
+      const area = document.getElementById('photoArea');
+      const ph   = document.getElementById('photoPlaceholder');
+      const rmBtn= document.getElementById('removePhotoBtn');
+
+      img.src = e.target.result;
+      img.style.display    = 'block';
+      ph.style.display     = 'none';
+      area.classList.add('has-image');
+      rmBtn.style.display  = 'inline-block';
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+function removePhoto() {
+  const input = document.getElementById('eventPhoto');
+  const img   = document.getElementById('photoPreviewImg');
+  const area  = document.getElementById('photoArea');
+  const ph    = document.getElementById('photoPlaceholder');
+  const rmBtn = document.getElementById('removePhotoBtn');
+
+  input.value          = '';
+  img.style.display    = 'none';
+  img.src              = '';
+  ph.style.display     = 'block';
+  area.classList.remove('has-image');
+  rmBtn.style.display  = 'none';
+}
+
 function toggleFee(radio) {
   const freeWrap  = document.getElementById('feeAmountWrap');
   const freeLabel = document.getElementById('optFree');
@@ -122,18 +204,18 @@ function toggleFee(radio) {
   const feeFinal  = document.getElementById('regFeeFinal');
 
   if (radio.value === 'paid') {
-    freeWrap.style.display  = 'block';
-    freeLabel.className     = 'fee-opt';
-    paidLabel.className     = 'fee-opt selected-paid';
-    feeInput.required       = true;
-    feeFinal.value          = feeInput.value || '';
-    feeInput.oninput        = () => feeFinal.value = feeInput.value;
+    freeWrap.style.display = 'block';
+    freeLabel.className    = 'fee-opt';
+    paidLabel.className    = 'fee-opt selected-paid';
+    feeInput.required      = true;
+    feeFinal.value         = feeInput.value || '';
+    feeInput.oninput       = () => feeFinal.value = feeInput.value;
   } else {
-    freeWrap.style.display  = 'none';
-    freeLabel.className     = 'fee-opt selected-free';
-    paidLabel.className     = 'fee-opt';
-    feeInput.required       = false;
-    feeFinal.value          = '0';
+    freeWrap.style.display = 'none';
+    freeLabel.className    = 'fee-opt selected-free';
+    paidLabel.className    = 'fee-opt';
+    feeInput.required      = false;
+    feeFinal.value         = '0';
   }
 }
 </script>

@@ -1,8 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}My Events — MACE{% endblock %}
 
-
-
 {% block content %}
 <style>
   .filter-tabs {
@@ -85,6 +83,23 @@
     align-items: center;
     justify-content: center;
     color: white;
+    font-size: 4rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .event-poster-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+
+  .event-poster-placeholder {
+    position: relative;
+    z-index: 1;
     font-size: 4rem;
   }
 
@@ -192,7 +207,13 @@
     {% endif %}
 
     <div class="event-poster">
-      <i class="fas fa-calendar-check"></i>
+      {% if e.photo %}
+        <img src="{{ url_for('serve_upload', filename=e.photo) }}" 
+             alt="{{ e.event_name }}" 
+             class="event-poster-img">
+      {% else %}
+        <i class="fas fa-calendar-check event-poster-placeholder"></i>
+      {% endif %}
     </div>
 
     <div class="event-info">

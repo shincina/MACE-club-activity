@@ -72,7 +72,12 @@
   <div class="form-card" style="text-align:center;">
     <div style="width:90px;height:90px;border-radius:50%;background:var(--blue);
                 display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+      {% if faculty.photo %}
+        <img src="/uploads/{{ faculty.photo }}" alt="{{ faculty.faculty_name }}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+      {% else %}
       <span style="font-size:36px;font-weight:800;color:#fff;">{{ faculty.faculty_name[0]|upper }}</span>
+      {% endif %}
+      
     </div>
     <h3 style="border:none;margin-bottom:4px;font-size:18px;">{{ faculty.faculty_name }}</h3>
     <p style="color:#94a3b8;font-size:13px;">{{ faculty.department or '—' }}</p>

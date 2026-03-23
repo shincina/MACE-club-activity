@@ -1,8 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}Class Certificates — MACE{% endblock %}
 
-
-
 {% block content %}
 <style>
 .fbar { display:flex;align-items:center;flex-wrap:wrap;gap:8px;background:#fff;
@@ -24,6 +22,13 @@
 .cert-table td { padding:12px 16px;border-top:1px solid #f0f2f5;vertical-align:middle; }
 .cert-table tr:hover td { background:#fafbff; }
 
+.student-cell { display: flex; align-items: center; gap: 10px; }
+.student-avatar { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; display: flex;
+  align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff;
+  overflow: hidden; position: relative; background: var(--blue, #1B3A6B); }
+.student-avatar img { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; }
+.student-avatar-letter { position: relative; z-index: 1; }
+
 .badge-status { font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap; }
 .bs-pending  { background:#fef3c7;color:#92400e; }
 .bs-approved { background:#dcfce7;color:#166534; }
@@ -35,11 +40,23 @@
 .btn-sm-rej:hover { background:#7f0000; }
 .btn-sm-view { background:var(--blue,#1B3A6B);color:#fff;border:none;border-radius:6px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block; }
 
-/* Points modal */
 .pts-modal { display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.5);align-items:center;justify-content:center; }
 .pts-modal.open { display:flex; }
 .pts-box { background:#fff;border-radius:14px;padding:28px;width:340px;box-shadow:0 20px 60px rgba(0,0,0,.25); }
+
+.toast { position: fixed; top: 20px; right: 20px; background: #fff; padding: 16px 20px;
+  border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none; z-index: 100000;
+  min-width: 250px; animation: slideIn 0.3s ease; }
+.toast.show { display: block; }
+.toast.error { border-left: 4px solid #ef4444; }
+.toast.success { border-left: 4px solid #10b981; }
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
 </style>
+
+<div id="toast" class="toast"></div>
 
 <div class="page-header">
   <h2>Class Certificates</h2>
@@ -78,10 +95,22 @@
     <tbody>
       {% for cert in certificates %}
       {% set is_self = cert.certificate_type == 'self_initiative' %}
+      {% set colours = ['#1B3A6B','#7b1fa2','#1a7a4a','#e65100','#1565c0','#ad1457','#C8902A','#263238'] %}
       <tr id="row-{{ cert.certificate_id }}">
         <td>
-          <strong>{{ cert.student_name }}</strong>
-          <div style="font-size:11px;color:#94a3b8;">{{ cert.reg_no }} · {{ cert.semester }}</div>
+          <div class="student-cell">
+            <div class="student-avatar" style="background:{{ colours[loop.index0 % colours|length] }};">
+              {% if cert.photo %}
+                <img src="{{ url_for('serve_upload', filename=cert.photo) }}" alt="{{ cert.student_name }}"/>
+              {% else %}
+              <span class="student-avatar-letter">{{ cert.student_name[0]|upper }}</span>
+              {% endif %}
+            </div>
+            <div>
+              <strong>{{ cert.student_name }}</strong>
+              <div style="font-size:11px;color:#94a3b8;">{{ cert.reg_no }} · {{ cert.semester }}</div>
+            </div>
+          </div>
         </td>
         <td>
           <span style="background:#e3f2fd;color:#0d47a1;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;">
@@ -105,7 +134,7 @@
           {% if cert.file_path %}
           <a href="{{ url_for('serve_upload', filename=cert.file_path) }}" target="_blank"
              style="color:var(--blue);font-size:12px;font-weight:600;text-decoration:none;">
-            <i class="fas fa-eye"></i> View
+            👁 View
           </a>
           {% else %}—{% endif %}
         </td>
@@ -113,18 +142,14 @@
           {% if cert.status == 'pending' %}
           <div style="display:flex;gap:6px;align-items:center;">
             <a href="{{ url_for('faculty_view_student', reg_no=cert.reg_no) }}" class="btn-sm-view">
-              <i class="fas fa-user"></i> Student
+              👤 Profile
             </a>
-            {% if is_self %}
-              <button class="btn-sm-app" onclick="openPtsModal({{ cert.certificate_id }})">✅ Approve</button>
-            {% else %}
-              <button class="btn-sm-app" onclick="approveCert({{ cert.certificate_id }}, 0)">✅ Approve</button>
-            {% endif %}
-            <button class="btn-sm-rej" onclick="rejectCert({{ cert.certificate_id }})">❌ Reject</button>
+            <button class="btn-sm-app" data-cert-id="{{ cert.certificate_id }}" data-is-self="{{ is_self|lower }}" onclick="handleApprove(this)">✅ Approve</button>
+            <button class="btn-sm-rej" data-cert-id="{{ cert.certificate_id }}" onclick="handleReject(this)">❌ Reject</button>
           </div>
           {% else %}
           <a href="{{ url_for('faculty_view_student', reg_no=cert.reg_no) }}" class="btn-sm-view">
-            <i class="fas fa-user"></i> Student
+            👤 Profile
           </a>
           {% endif %}
         </td>
@@ -135,7 +160,7 @@
 </div>
 {% else %}
 <div style="text-align:center;padding:60px;color:#94a3b8;">
-  <i class="fas fa-certificate" style="font-size:40px;opacity:.2;display:block;margin-bottom:12px;"></i>
+  <div style="font-size:40px;opacity:.2;margin-bottom:12px;">📜</div>
   <h4 style="color:#64748b;">No certificates found</h4>
   <p style="font-size:13px;margin-top:6px;">Try changing the filter above.</p>
 </div>
@@ -145,12 +170,12 @@
 <div class="pts-modal" id="ptsModal">
   <div class="pts-box">
     <h3 style="margin:0 0 6px;font-size:16px;font-weight:700;color:#1a2340;">Approve Certificate</h3>
-    <p style="font-size:13px;color:#64748b;margin:0 0 18px;">Enter points to award for this self-initiative certificate.</p>
+    <p id="modalDesc" style="font-size:13px;color:#64748b;margin:0 0 18px;">Enter points to award for this certificate.</p>
     <div style="margin-bottom:14px;">
       <label style="font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:6px;">Points to Award</label>
       <input type="number" id="ptsInput" min="1" max="50" value="5"
              style="width:100%;padding:10px 12px;border:2px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;">
-      <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Typical: Internship=20, Industrial Visit=15, NPTEL=5</div>
+      <div id="ptsHint" style="font-size:11px;color:#94a3b8;margin-top:4px;">Typical: Internship=20, Industrial Visit=15, NPTEL=5</div>
     </div>
     <div style="display:flex;gap:10px;">
       <button onclick="closePtsModal()"
@@ -162,52 +187,116 @@
 </div>
 
 <script>
-let pendingCertId = null;
+var pendingCertId = null;
 
-function openPtsModal(certId) {
+// Use data attributes instead of inline parameters
+function handleApprove(button) {
+  var certId = button.getAttribute('data-cert-id');
+  var isSelf = button.getAttribute('data-is-self') === 'true';
+  
+  console.log('handleApprove - certId:', certId, 'isSelf:', isSelf);
+  openPtsModal(certId, isSelf);
+}
+
+function handleReject(button) {
+  var certId = button.getAttribute('data-cert-id');
+  console.log('handleReject - certId:', certId);
+  rejectCert(certId);
+}
+
+function openPtsModal(certId, isSelf) {
   pendingCertId = certId;
+  
+  if (isSelf) {
+    document.getElementById('modalDesc').textContent = 'Enter points for self-initiative certificate.';
+    document.getElementById('ptsHint').textContent = 'Typical: Internship=20, Visit=15, NPTEL=5';
+    document.getElementById('ptsInput').value = 5;
+  } else {
+    document.getElementById('modalDesc').textContent = 'Enter points for event certificate.';
+    document.getElementById('ptsHint').textContent = 'Event points will be used if you leave this blank or enter 0';
+    document.getElementById('ptsInput').value = 0;
+  }
+  
   document.getElementById('ptsModal').classList.add('open');
 }
+
 function closePtsModal() {
   pendingCertId = null;
   document.getElementById('ptsModal').classList.remove('open');
 }
+
 function confirmApprove() {
-  const pts = parseInt(document.getElementById('ptsInput').value) || 5;
-  closePtsModal();
-  approveCert(pendingCertId, pts);
+  var pts    = parseInt(document.getElementById('ptsInput').value) || 0;
+  var certId = pendingCertId;   // ← save it BEFORE closing modal
+  closePtsModal();              // ← this sets pendingCertId = null
+  approveCert(certId, pts);     // ← use saved value
 }
 
 function approveCert(certId, points) {
-  fetch(`/faculty/verify_certificate/${certId}`, {
+  console.log('approveCert - certId:', certId, 'points:', points);
+  
+  fetch('/faculty/verify_certificate/' + certId, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ points: points })
-  }).then(() => {
-    updateRow(certId, 'approved', points);
+  })
+  .then(function(response) { return response.json(); })
+  .then(function(data) {
+    if (data.success) {
+      updateRow(certId, 'approved', data.points);
+      showToast(data.message || 'Certificate approved successfully', 'success');
+    } else {
+      showToast(data.message || 'Failed to approve certificate', 'error');
+    }
+  })
+  .catch(function(error) {
+    showToast('Error: ' + error.message, 'error');
   });
 }
 
 function rejectCert(certId) {
-  fetch(`/faculty/reject_certificate/${certId}`, { method: 'POST' })
-    .then(() => updateRow(certId, 'rejected', 0));
+  console.log('rejectCert - certId:', certId);
+  
+  fetch('/faculty/reject_certificate/' + certId, { method: 'POST' })
+    .then(function(response) { return response.json(); })
+    .then(function(data) {
+      if (data.success) {
+        updateRow(certId, 'rejected', 0);
+        showToast(data.message || 'Certificate rejected', 'success');
+      } else {
+        showToast(data.message || 'Failed to reject certificate', 'error');
+      }
+    })
+    .catch(function(error) {
+      showToast('Error: ' + error.message, 'error');
+    });
 }
 
 function updateRow(certId, status, points) {
-  const badge   = document.getElementById('badge-'   + certId);
-  const actions = document.getElementById('actions-' + certId);
-  const ptsEl   = document.getElementById('pts-'     + certId);
+  var badge   = document.getElementById('badge-'   + certId);
+  var actions = document.getElementById('actions-' + certId);
+  var ptsEl   = document.getElementById('pts-'     + certId);
 
   if (badge) {
     badge.className = 'badge-status bs-' + status;
     badge.innerHTML = status === 'approved' ? '✅ Approved' : '❌ Rejected';
   }
   if (ptsEl && status === 'approved' && points > 0) {
-    ptsEl.innerHTML = `+${points}`;
+    ptsEl.innerHTML = '+' + points;
   }
   if (actions) {
-    actions.innerHTML = `<span style="font-size:12px;color:#94a3b8;">${status === 'approved' ? 'Approved' : 'Rejected'}</span>`;
+    actions.innerHTML = '<span style="font-size:12px;color:#94a3b8;">' + (status === 'approved' ? 'Approved' : 'Rejected') + '</span>';
   }
+}
+
+function showToast(message, type) {
+  var toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = 'toast ' + type + ' show';
+  
+  setTimeout(function() {
+    toast.classList.remove('show');
+  }, 4000);
 }
 </script>
 {% endblock %}

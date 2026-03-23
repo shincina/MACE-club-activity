@@ -1,7 +1,137 @@
 {% extends 'base.html' %}
 {% block title %}View Clubs — MACE{% endblock %}
 
+{% block extra_css %}
+<style>
+  .clubs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+    margin-top: 24px;
+  }
 
+  .club-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .club-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+
+  .club-card-banner {
+    position: relative;
+    height: 140px;
+    background: linear-gradient(135deg, #1B3A6B, #2a52a0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .club-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.9;
+  }
+
+  .club-photo-placeholder {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 36px;
+    font-weight: 800;
+    border: 3px solid rgba(255, 255, 255, 0.4);
+  }
+
+  .club-type-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(255, 255, 255, 0.95);
+    color: #1B3A6B;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .club-card-body {
+    padding: 20px;
+  }
+
+  .club-card-body h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 16px 0;
+  }
+
+  .info-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 8px;
+  }
+
+  .info-row i {
+    color: var(--gold, #C8902A);
+    width: 16px;
+  }
+
+  .club-card-footer {
+    padding: 0 20px 20px 20px;
+  }
+
+  .club-card-footer form {
+    margin: 0;
+  }
+
+  .club-card-footer .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 80px 20px;
+    color: #94a3b8;
+  }
+
+  .empty-state i {
+    font-size: 64px;
+    opacity: 0.3;
+    margin-bottom: 20px;
+  }
+
+  .empty-state h4 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 8px;
+  }
+
+  .empty-state p {
+    font-size: 14px;
+  }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -13,23 +143,49 @@
 <div class="clubs-grid">
   {% for club in clubs %}
   <div class="club-card">
-    <div class="club-card-top">
+    <!-- Club Banner with Photo -->
+    <div class="club-card-banner">
+      {% if club.photo %}
+        <img src="{{ url_for('serve_upload', filename=club.photo) }}" alt="{{ club.club_name }}" class="club-photo">
+      {% else %}
+        <div class="club-photo-placeholder">{{ club.club_name[0]|upper }}</div>
+      {% endif %}
       <span class="club-type-badge">{{ club.club_type }}</span>
-      <h3>{{ club.club_name }}</h3>
     </div>
+
+    <!-- Club Details -->
     <div class="club-card-body">
-      <div class="info-row"><i class="fas fa-chalkboard-teacher"></i> {{ club.faculty_name }}</div>
-      <div class="info-row"><i class="fas fa-users"></i> {{ club.member_count }} members</div>
+      <h3>{{ club.club_name }}</h3>
+      <div class="info-row">
+        <i class="fas fa-chalkboard-teacher"></i> 
+        {{ club.faculty_name or 'No Faculty Assigned' }}
+      </div>
+      <div class="info-row">
+        <i class="fas fa-users"></i> 
+        {{ club.member_count }} member{{ 's' if club.member_count != 1 else '' }}
+      </div>
+      {% if club.coordinator_name %}
+      <div class="info-row">
+        <i class="fas fa-crown"></i> 
+        {{ club.coordinator_name }}
+      </div>
+      {% endif %}
     </div>
+
+    <!-- Action Button -->
     <div class="club-card-footer">
       {% if club.my_status == 'approved' %}
-        <span class="badge badge-success"><i class="fas fa-check"></i> Joined</span>
+        <span class="badge badge-success" style="width: 100%; text-align: center; padding: 10px;">
+          <i class="fas fa-check"></i> Joined
+        </span>
       {% elif club.my_status == 'pending' %}
-        <span class="badge badge-warning"><i class="fas fa-clock"></i> Pending</span>
+        <span class="badge badge-warning" style="width: 100%; text-align: center; padding: 10px;">
+          <i class="fas fa-clock"></i> Pending Approval
+        </span>
       {% else %}
         <form method="POST" action="{{ url_for('join_club', club_id=club.club_id) }}">
           <button type="submit" class="btn btn-primary btn-sm">
-            <i class="fas fa-plus"></i> Join
+            <i class="fas fa-plus"></i> Join Club
           </button>
         </form>
       {% endif %}
@@ -41,7 +197,7 @@
 <div class="empty-state">
   <i class="fas fa-users"></i>
   <h4>No clubs available</h4>
-  <p>Check back later.</p>
+  <p>Check back later or contact admin for more information.</p>
 </div>
 {% endif %}
 {% endblock %}

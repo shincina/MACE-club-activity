@@ -74,8 +74,25 @@
 /* ── Banner ──────────────────────────────────────────────────────── */
 .ev-banner {
   height:88px; display:flex; align-items:center; justify-content:center;
-  font-size:2.4rem; cursor:pointer;
+  font-size:2.4rem; cursor:pointer; position:relative; overflow:hidden;
 }
+
+.ev-banner-img {
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  position:absolute;
+  top:0;
+  left:0;
+}
+
+.ev-banner-icon {
+  position:relative;
+  z-index:1;
+  font-size:2.4rem;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.3));
+}
+
 .upcoming .ev-banner  { background:linear-gradient(135deg,#1B3A6B,#2a52a0); }
 .ongoing  .ev-banner  { background:linear-gradient(135deg,#166534,#22c55e); }
 .archived .ev-banner  { background:linear-gradient(135deg,#374151,#6b7280); }
@@ -165,26 +182,28 @@
 .att-row {
   display:flex; align-items:center; gap:14px;
   padding:12px 14px; border-radius:10px; border:1.5px solid #e2e6ed;
-  cursor:pointer; transition:all .2s; user-select:none;
+  cursor:pointer; transition:all .2s; user-select:none; background:#fff;
 }
-.att-row.present {
-  background:#f0fdf4; border-color:#86efac;
-}
-.att-row.absent {
-  background:#fff5f5; border-color:#fca5a5;
-  opacity:.7; text-decoration:none;
-}
+.att-row.present { background:#f0fdf4; border-color:#86efac; }
+.att-row.absent  { background:#fff5f5; border-color:#fca5a5; }
 .att-row.absent .att-name { text-decoration:line-through; color:#9ca3af; }
 .att-row.absent .att-reg  { text-decoration:line-through; color:#d1d5db; }
 
 .att-check {
-  width:26px; height:26px; border-radius:50%; border:2px solid #d1d5db;
+  width:28px; height:28px; border-radius:8px; border:2px solid #d1d5db;
   display:flex; align-items:center; justify-content:center;
-  font-size:13px; flex-shrink:0; transition:all .2s;
+  font-size:16px; font-weight:900; flex-shrink:0; transition:all .2s;
+  background:#fff;
 }
-.att-row.present .att-check { background:#22c55e; border-color:#22c55e; color:#fff; }
-.att-row.absent  .att-check { background:#ef4444; border-color:#ef4444; color:#fff; }
+.att-row.present .att-check {
+  background:#22c55e; border-color:#22c55e; color:#fff; content:'✓';
+}
+.att-row.absent .att-check {
+  background:#ef4444; border-color:#ef4444; color:#fff;
+}
 
+.att-row.absent .att-name { color:#9ca3af; }
+.att-row.absent .att-reg  { color:#d1d5db; }
 .att-name { font-size:13px; font-weight:700; color:#1a2340; }
 .att-reg  { font-size:11px; color:#94a3b8; margin-top:2px; }
 .att-dept { margin-left:auto; font-size:11px; color:#64748b; white-space:nowrap; }
@@ -238,7 +257,13 @@
   {% for e in ongoing_events %}
   <div class="ev-card ongoing">
     <div class="ev-label ongoing">🟢 Ongoing</div>
-    <div class="ev-banner">🎉</div>
+    <div class="ev-banner">
+      {% if e.photo %}
+        <img src="{{ url_for('serve_upload', filename=e.photo) }}" alt="{{ e.event_name }}" class="ev-banner-img">
+      {% else %}
+        <span class="ev-banner-icon">🎉</span>
+      {% endif %}
+    </div>
     <div class="ev-body">
       <div class="ev-name">{{ e.event_name }}</div>
       <div class="ev-club">{{ e.club_name }}</div>
@@ -270,7 +295,13 @@
   {% for e in upcoming_events %}
   <div class="ev-card upcoming">
     <div class="ev-label upcoming">🔵 Upcoming</div>
-    <div class="ev-banner">📅</div>
+    <div class="ev-banner">
+      {% if e.photo %}
+        <img src="{{ url_for('serve_upload', filename=e.photo) }}" alt="{{ e.event_name }}" class="ev-banner-img">
+      {% else %}
+        <span class="ev-banner-icon">📅</span>
+      {% endif %}
+    </div>
     <div class="ev-body">
       <div class="ev-name">{{ e.event_name }}</div>
       <div class="ev-club">{{ e.club_name }}</div>
@@ -305,7 +336,13 @@
   {% for e in archived_events %}
   <div class="ev-card archived">
     <div class="ev-label archived">🔴 Past</div>
-    <div class="ev-banner">📁</div>
+    <div class="ev-banner">
+      {% if e.photo %}
+        <img src="{{ url_for('serve_upload', filename=e.photo) }}" alt="{{ e.event_name }}" class="ev-banner-img">
+      {% else %}
+        <span class="ev-banner-icon">📁</span>
+      {% endif %}
+    </div>
     <div class="ev-body">
       <div class="ev-name">{{ e.event_name }}</div>
       <div class="ev-club">{{ e.club_name }}</div>
@@ -410,15 +447,17 @@ function renderRows(students) {
          id="row-${s.student_id}"
          onclick="toggleStudent('${s.student_id}')">
       <div class="att-check">${present ? '✓' : '✗'}</div>
-      <div>
-        <div class="att-name">${s.name}</div>
-        <div class="att-reg">${s.reg_no}</div>
+      <div style="flex:1;">
+        <div class="att-name" style="font-size:13px;font-weight:700;color:#1a2340;">${s.name}</div>
+        <div class="att-reg"  style="font-size:11px;color:#94a3b8;margin-top:2px;">${s.reg_no} · ${s.semester || ''}</div>
       </div>
-      <div class="att-dept">${s.dept_name || ''}</div>
+      <div style="font-size:11px;color:#64748b;white-space:nowrap;">${s.dept_name || ''}</div>
+      <div style="font-size:11px;font-weight:700;color:${present ? '#166534' : '#991b1b'};">
+        ${present ? 'Present' : 'Absent'}
+      </div>
     </div>`;
   }).join('');
 }
-
 /* ── Toggle single student ───────────────────────────────────────── */
 function toggleStudent(studentId) {
   attendanceState[studentId] = !attendanceState[studentId];

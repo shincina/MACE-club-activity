@@ -155,9 +155,24 @@
       <tr id="memrow-{{ m.membership_id }}">
 
         <td>
-          <div class="stu-name">{{ m.student_name }}</div>
-          <div class="stu-sub">{{ m.reg_no }} &bull; {{ m.dept_name or '—' }}</div>
-        </td>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <!-- Avatar -->
+    <div style="width:36px;height:36px;border-radius:50%;overflow:hidden;flex-shrink:0;
+                background:var(--blue);display:flex;align-items:center;justify-content:center;
+                font-size:14px;font-weight:700;color:#fff;">
+      {% if m.photo %}
+        <img src="/uploads/{{ m.photo }}"
+             style="width:100%;height:100%;object-fit:cover;">
+      {% else %}
+        {{ m.student_name[0]|upper }}
+      {% endif %}
+    </div>
+    <div>
+      <div class="stu-name">{{ m.student_name }}</div>
+      <div class="stu-sub">{{ m.reg_no }} &bull; {{ m.dept_name or '—' }}</div>
+    </div>
+  </div>
+</td>
 
         <td><span class="club-badge">{{ m.club_name }}</span></td>
 

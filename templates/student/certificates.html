@@ -81,7 +81,7 @@
   {# Build file URL — cert.file_path holds just the filename #}
   {% set fname   = c.file_path|string %}
   {% set ext     = fname.rsplit('.',1)[-1].lower() if '.' in fname else '' %}
-  {% set furl    = url_for('serve_upload', filename=fname) %}
+  {% set furl    = '/uploads/'+fname %}
   {% set catname = c.activity_category|replace('_',' ')|title %}
 
   <div class="card s-{{ c.status }}">

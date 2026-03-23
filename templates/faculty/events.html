@@ -3,7 +3,6 @@
 
 {% block content %}
 <style>
-/* ── Filter bar ─────────────────────────────────────────────────── */
 .fbar {
   display:flex; align-items:center; flex-wrap:wrap; gap:8px;
   background:#fff; border:1px solid #e2e6ed; border-radius:12px;
@@ -24,7 +23,6 @@
 .fchip.fc-red     { background:#c62828; color:#fff; border-color:#c62828; }
 .fchip.fc-past    { background:#374151; color:#fff; border-color:#374151; }
 
-/* ── Calendar ───────────────────────────────────────────────────── */
 .cal-nav {
   display:flex; align-items:center; justify-content:space-between;
   margin-bottom:16px;
@@ -48,28 +46,55 @@
   text-transform:uppercase; letter-spacing:.06em;
   background:#f8fafc; border-bottom:2px solid #e2e6ed;
 }
+@keyframes cellGlowToday {
+  0%   { box-shadow: inset 0 0 0 2px transparent; background: #eff6ff; }
+  50%  { box-shadow: inset 0 0 0 2px #C8902A; background: #fff3e0; }
+  100% { box-shadow: inset 0 0 0 2px transparent; background: #eff6ff; }
+}
+
+/* Other month with events — subtler glow */
+.cal-cell.other-month.has-event {
+  animation: cellGlowMuted 2s ease-in-out infinite;
+}
+@keyframes cellGlowMuted {
+  0%   { box-shadow: inset 0 0 0 2px transparent; }
+  50%  { box-shadow: inset 0 0 0 2px #a5b4fc; background: #f5f3ff; }
+  100% { box-shadow: inset 0 0 0 2px transparent; }
+}
+.cal-cell.today.has-event {
+  animation: cellGlowToday 2s ease-in-out infinite;
+}
 .cal-cell {
   min-height:110px; padding:6px;
   border-right:1px solid #f0f2f5; border-bottom:1px solid #f0f2f5;
-  position:relative; vertical-align:top; transition:background .15s;
+  position:relative; vertical-align:top;
+}
+.cal-cell.has-event {
+  animation: cellGlow 2s ease-in-out infinite;
 }
 .cal-cell:nth-child(7n) { border-right:none; }
-.cal-cell.other-month   { background:#fafbfc; }
+.cal-cell.other-month .cal-date { background:#e2e6ed; color:#94a3b8; }
 .cal-cell.today         { background:#eff6ff; }
-.cal-cell.today .cal-date { color:var(--blue,#1B3A6B); font-weight:800; }
-
 .cal-date {
-  font-size:12px; font-weight:600; color:#64748b;
-  margin-bottom:4px; display:block;
+  font-size:13px; font-weight:700; color:#fff;
+  margin-bottom:4px; display:flex;
+  align-items:center; justify-content:center;
+  width:28px; height:28px; border-radius:6px;
+  background:var(--blue,#1B3A6B);
 }
 .cal-date-today {
   display:inline-flex; align-items:center; justify-content:center;
-  width:22px; height:22px; border-radius:50%;
-  background:var(--blue,#1B3A6B); color:#fff;
-  font-size:11px; font-weight:800;
+  width:28px; height:28px; border-radius:6px;
+  background:var(--gold,#C8902A); color:#fff;
+  font-size:13px; font-weight:800;
+}
+
+/* ── Pill + tooltip wrapper ── */
+.pill-wrap {
+  position:relative; margin-bottom:3px;
 }
 .cal-event-pill {
-  display:block; padding:3px 7px; border-radius:6px; margin-bottom:3px;
+  display:block; padding:3px 7px; border-radius:6px;
   font-size:10px; font-weight:600; cursor:pointer; overflow:hidden;
   white-space:nowrap; text-overflow:ellipsis; transition:opacity .15s;
   border:none; width:100%; text-align:left;
@@ -79,12 +104,36 @@
 .pill-approved { background:#dcfce7; color:#166534; }
 .pill-rejected { background:#fee2e2; color:#991b1b; }
 .pill-past     { background:#e0e7ff; color:#3730a3; }
-.cal-more {
-  font-size:10px; color:#94a3b8; font-weight:600; cursor:pointer; padding:2px 4px;
+
+/* Tooltip card */
+.pill-tooltip {
+  display:none; position:absolute;
+  left:calc(100% + 8px); top:50%; transform:translateY(-50%);
+  z-index:9999; width:230px;
+  background:#fff; border-radius:12px;
+  box-shadow:0 8px 32px rgba(0,0,0,.2); border:1px solid #e2e6ed;
+  overflow:hidden; pointer-events:none;
 }
+.pill-wrap:hover .pill-tooltip { display:block; }
+.pill-tooltip.flip-left { left:auto; right:calc(100% + 8px); }
+
+.pt-img {
+  width:100%; height:80px;
+  background:linear-gradient(135deg,#1B3A6B,#2a52a0);
+  display:flex; align-items:center; justify-content:center;
+  font-size:2rem; flex-shrink:0; overflow:hidden; position:relative;
+}
+.pt-img img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.pt-img-icon { position:relative; z-index:1; }
+.pt-body { padding:10px 12px; }
+.pt-name { font-size:12px; font-weight:700; color:#1a2340; margin-bottom:4px; line-height:1.3; white-space:normal; }
+.pt-club { font-size:10px; font-weight:600; color:#1557b0; background:#e8f0fe; padding:1px 7px; border-radius:20px; display:inline-block; margin-bottom:6px; }
+.pt-meta { font-size:10px; color:#64748b; display:flex; flex-direction:column; gap:3px; }
+
+.cal-more { font-size:10px; color:#94a3b8; font-weight:600; cursor:pointer; padding:2px 4px; }
 .cal-more:hover { color:var(--blue,#1B3A6B); }
 
-/* ── Detail modal ───────────────────────────────────────────────── */
+/* ── Modal ── */
 .modal-overlay {
   display:none; position:fixed; inset:0; z-index:99999;
   background:rgba(10,15,40,.75); backdrop-filter:blur(4px);
@@ -95,16 +144,25 @@
 .modal-box {
   background:#fff; border-radius:20px; width:100%; max-width:680px;
   max-height:90vh; overflow-y:auto;
-  box-shadow:0 24px 80px rgba(0,0,0,.4);
-  animation:mup .25s ease;
+  box-shadow:0 24px 80px rgba(0,0,0,.4); animation:mup .25s ease;
 }
 @keyframes mup { from{transform:translateY(28px);opacity:0} to{transform:translateY(0);opacity:1} }
 .modal-head {
   height:200px; display:flex; align-items:center; justify-content:center;
   font-size:5rem; border-radius:20px 20px 0 0; position:relative;
-  background:linear-gradient(135deg,#1B3A6B,#2a52a0);
+  background:linear-gradient(135deg,#1B3A6B,#2a52a0); overflow:hidden;
+}
+@keyframes cellGlow {
+  0%   { box-shadow: inset 0 0 0 2px transparent; background: #fff; }
+  50%  { box-shadow: inset 0 0 0 2px #6366f1; background: #eef2ff; }
+  100% { box-shadow: inset 0 0 0 2px transparent; background: #fff; }
+}
+.modal-head img {
+  position:absolute; inset:0; width:100%; height:100%;
+  object-fit:cover; opacity:.85;
 }
 .modal-head::after { content:''; position:absolute; inset:0; background:rgba(0,0,0,.18); border-radius:20px 20px 0 0; }
+.modal-head-icon { position:relative; z-index:1; filter:drop-shadow(0 4px 10px rgba(0,0,0,.4)); }
 .modal-x {
   position:absolute; top:14px; right:14px; z-index:10;
   background:rgba(0,0,0,.35); border:none; border-radius:50%;
@@ -115,36 +173,22 @@
 .modal-body-content { padding:26px 30px 30px; }
 .modal-title { font-size:22px; font-weight:800; color:#1a2340; margin-bottom:6px; }
 .modal-sub   { font-size:13px; color:#64748b; margin-bottom:20px; }
-.modal-meta-grid {
-  display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:20px;
-}
-.mmeta {
-  background:#f8fafc; border-radius:10px; padding:12px 14px;
-  display:flex; align-items:center; gap:10px; font-size:13px;
-}
+.modal-meta-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:20px; }
+.mmeta { background:#f8fafc; border-radius:10px; padding:12px 14px; display:flex; align-items:center; gap:10px; font-size:13px; }
 .mmeta i { color:#6366f1; width:18px; }
-.modal-desc {
-  background:#f8fafc; border-radius:10px; padding:14px 16px;
-  font-size:13px; color:#4b5563; line-height:1.7;
-  border-left:4px solid var(--blue,#1B3A6B); margin-bottom:20px;
-}
+.modal-desc { background:#f8fafc; border-radius:10px; padding:14px 16px; font-size:13px; color:#4b5563; line-height:1.7; border-left:4px solid var(--blue,#1B3A6B); margin-bottom:20px; }
 .modal-actions { display:flex; gap:10px; }
-.mbtn-close {
-  flex:1; padding:11px; background:#f1f5f9; color:#374151; border:none;
-  border-radius:10px; font-size:14px; font-weight:700; cursor:pointer;
-}
+.mbtn-close { flex:1; padding:11px; background:#f1f5f9; color:#374151; border:none; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; }
 </style>
 
-<script>
-const ALL_EVENTS = {{ events | tojson }};
-</script>
+<script>const ALL_EVENTS = {{ events | tojson }};</script>
 
 <div class="page-header">
   <h2>Club Events</h2>
-  <p>Calendar view of all events from your clubs</p>
+  <p>Calendar view — hover a pill to preview, click to open details</p>
 </div>
 
-<!-- ── FILTER BAR ─────────────────────────────────────────────────── -->
+<!-- Filter bar -->
 <div class="fbar">
   <span class="fbar-label">Club</span>
   <a href="{{ url_for('faculty_events', status=status_filter) }}"
@@ -155,10 +199,8 @@ const ALL_EVENTS = {{ events | tojson }};
     {{ club.club_name }}
   </a>
   {% endfor %}
-
   <div class="fbar-divider"></div>
   <span class="fbar-label">Status</span>
-
   <a href="{{ url_for('faculty_events', club=club_filter) }}"
      class="fchip {% if status_filter=='all' %}fc-active{% endif %}">All</a>
   <a href="{{ url_for('faculty_events', club=club_filter, status='pending') }}"
@@ -171,7 +213,7 @@ const ALL_EVENTS = {{ events | tojson }};
      class="fchip {% if status_filter=='completed' %}fc-past{% endif %}">🏁 Past</a>
 </div>
 
-<!-- ── CALENDAR ───────────────────────────────────────────────────── -->
+<!-- Calendar -->
 <div class="cal-nav">
   <button class="cal-nav-btn" onclick="changeMonth(-1)">&#8592; Prev</button>
   <h2 id="calTitle"></h2>
@@ -187,11 +229,11 @@ const ALL_EVENTS = {{ events | tojson }};
   <div class="cal-dow">Sat</div>
 </div>
 
-<!-- ── DETAIL MODAL ───────────────────────────────────────────────── -->
+<!-- Modal -->
 <div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
   <div class="modal-box">
-    <div class="modal-head">
-      <span style="position:relative;z-index:1;filter:drop-shadow(0 4px 10px rgba(0,0,0,.4));">📅</span>
+    <div class="modal-head" id="mHead">
+      <span class="modal-head-icon">📅</span>
       <button class="modal-x" onclick="closeModal()">&times;</button>
     </div>
     <div class="modal-body-content">
@@ -216,7 +258,7 @@ function buildCalendar() {
   const grid = document.getElementById('calGrid');
   while (grid.children.length > 7) grid.removeChild(grid.lastChild);
 
-  const firstDay   = new Date(currentYear, currentMonth, 1).getDay();
+  const firstDay    = new Date(currentYear, currentMonth, 1).getDay();
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const daysInPrev  = new Date(currentYear, currentMonth, 0).getDate();
 
@@ -235,7 +277,6 @@ function buildCalendar() {
     cell.className = 'cal-cell';
 
     let dayNum, dateStr, isOther = false;
-
     if (i < firstDay) {
       dayNum  = daysInPrev - firstDay + 1 + i;
       dateStr = `${currentYear}-${String(currentMonth).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
@@ -260,19 +301,63 @@ function buildCalendar() {
     const dateEl = document.createElement('span');
     dateEl.className = 'cal-date';
     dateEl.innerHTML = isToday
-      ? `<span class="cal-date-today">${dayNum}</span>`
-      : dayNum;
+      ? `<span class="cal-date-today">${dayNum}</span>` : dayNum;
     cell.appendChild(dateEl);
 
     const dayEvents = eventsByDate[dateStr] || [];
+    if (dayEvents.length > 0) cell.classList.add('has-event');
+
+    const colIndex  = i % 7;
+
     dayEvents.slice(0,2).forEach(ev => {
+      const pillClass = ev.status==='approved' ? 'pill-approved'
+                      : ev.status==='rejected' ? 'pill-rejected'
+                      : ev.status==='pending'  ? 'pill-pending' : 'pill-past';
+
+      // tooltip
+      const tooltip = document.createElement('div');
+      tooltip.className = 'pill-tooltip' + (colIndex >= 4 ? ' flip-left' : '');
+
+      const imgDiv = document.createElement('div');
+      imgDiv.className = 'pt-img';
+      if (ev.photo) {
+        const img = document.createElement('img');
+        img.src = `/uploads/${ev.photo}`;
+        img.alt = ev.event_name;
+        imgDiv.appendChild(img);
+      }
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'pt-img-icon';
+      iconSpan.textContent = '📅';
+      imgDiv.appendChild(iconSpan);
+      tooltip.appendChild(imgDiv);
+
+      const ptBody = document.createElement('div');
+      ptBody.className = 'pt-body';
+      ptBody.innerHTML = `
+        <div class="pt-name">${ev.event_name}</div>
+        <span class="pt-club">${ev.club_name}</span>
+        <div class="pt-meta">
+          <span>📅 ${ev.event_date || 'TBD'}</span>
+          <span>🕐 ${ev.event_time || 'TBD'}</span>
+          <span>📍 ${ev.location || 'TBD'}</span>
+          <span>⭐ ${ev.points||0} pts &nbsp;·&nbsp; 👥 ${ev.participant_count}/${ev.max_participants}</span>
+        </div>
+      `;
+      tooltip.appendChild(ptBody);
+
+      // pill wrap
+      const wrap = document.createElement('div');
+      wrap.className = 'pill-wrap';
+
       const pill = document.createElement('button');
-      pill.className = 'cal-event-pill pill-' +
-        (ev.status==='approved' ? 'approved' : ev.status==='rejected' ? 'rejected' :
-         ev.status==='pending'  ? 'pending'  : 'past');
+      pill.className = `cal-event-pill ${pillClass}`;
       pill.textContent = ev.event_name;
       pill.onclick = () => openModal(ev.event_id);
-      cell.appendChild(pill);
+
+      wrap.appendChild(pill);
+      wrap.appendChild(tooltip);
+      cell.appendChild(wrap);
     });
 
     if (dayEvents.length > 2) {
@@ -297,6 +382,17 @@ function changeMonth(dir) {
 function openModal(eventId) {
   const ev = ALL_EVENTS.find(e => e.event_id === eventId);
   if (!ev) return;
+
+  const mHead = document.getElementById('mHead');
+  const oldImg = mHead.querySelector('img');
+  if (oldImg) oldImg.remove();
+  if (ev.photo) {
+    const img = document.createElement('img');
+    img.src = `/uploads/${ev.photo}`;
+    img.alt = ev.event_name;
+    mHead.prepend(img);
+  }
+
   document.getElementById('mTitle').textContent = ev.event_name;
   document.getElementById('mSub').innerHTML =
     `<span style="background:#e8f0fe;color:#1557b0;font-size:11px;font-weight:700;
@@ -313,6 +409,7 @@ function openModal(eventId) {
     `<strong>About</strong><br>${ev.description || 'No description provided.'}`;
   document.getElementById('mActions').innerHTML =
     `<button class="mbtn-close" style="flex:2" onclick="closeModal()">Close</button>`;
+
   document.getElementById('modalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
 }

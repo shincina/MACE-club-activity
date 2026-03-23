@@ -15,14 +15,22 @@
   transition: transform .25s, box-shadow .25s;
   cursor: pointer; border: 1px solid #e8ecf2;
 }
-.club-card:hover { transform: translateY(-6px); box-shadow: 0 10px 28px rgba(0,0,0,.13); }
+.club-card:hover { transform:translateY(-6px); box-shadow: 0 10px 28px rgba(0,0,0,.13); }
+
 .club-banner {
   height: 120px; display: flex; align-items: center; justify-content: center;
-  font-size: 3.2rem; position: relative; overflow: hidden;
+  position: relative; overflow: hidden;
 }
-.club-banner::after { content:''; position:absolute; inset:0; background:rgba(0,0,0,.15); }
-.club-banner img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; }
-.club-banner .banner-icon { position:relative; z-index:1; filter:drop-shadow(0 2px 6px rgba(0,0,0,.3)); }
+.club-banner-img {
+  width:100%; height:100%; object-fit:cover;
+  position:absolute; top:0; left:0; opacity:0.9;
+}
+.club-banner-placeholder {
+  position:relative; z-index:1; font-size:3.2rem;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.3));
+}
+.club-banner::after { content:''; position:absolute; inset:0; background:rgba(0,0,0,.15); z-index:0; }
+
 .club-body { padding: 18px 20px 16px; }
 .club-name { font-size: 15px; font-weight: 700; color: #1a2340; margin-bottom: 6px; }
 .club-type-pill {
@@ -58,11 +66,18 @@
 
 .panel-banner {
   height:180px; display:flex; align-items:center; justify-content:center;
-  font-size:5rem; position:relative; border-radius:20px 20px 0 0; overflow:hidden;
+  position:relative; border-radius:20px 20px 0 0; overflow:hidden;
 }
-.panel-banner::after { content:''; position:absolute; inset:0; background:rgba(0,0,0,.18); }
-.panel-banner img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; }
-.panel-banner .panel-icon { position:relative; z-index:1; filter:drop-shadow(0 4px 12px rgba(0,0,0,.4)); }
+.panel-banner-img {
+  width:100%; height:100%; object-fit:cover;
+  position:absolute; top:0; left:0; opacity:0.85;
+}
+.panel-banner-placeholder {
+  position:relative; z-index:1; font-size:5rem;
+  filter:drop-shadow(0 4px 12px rgba(0,0,0,.4));
+}
+.panel-banner::after { content:''; position:absolute; inset:0; background:rgba(0,0,0,.18); z-index:0; }
+
 .panel-close {
   position:absolute; top:14px; right:14px; z-index:10;
   background:rgba(0,0,0,.35); border:none; border-radius:50%;
@@ -98,9 +113,14 @@
   width:36px; height:36px; border-radius:50%; flex-shrink:0;
   display:flex; align-items:center; justify-content:center;
   font-size:14px; font-weight:700; color:#fff; overflow:hidden;
+  position:relative;
 }
 .member-avatar img {
-  width:100%; height:100%; object-fit:cover; border-radius:50%; display:block;
+  width:100%; height:100%; object-fit:cover; border-radius:50%;
+  position:absolute; top:0; left:0;
+}
+.member-avatar-letter {
+  position:relative; z-index:1;
 }
 
 .member-info { flex:1; min-width:0; }
@@ -164,14 +184,15 @@
 .ct-default       { background:linear-gradient(135deg,#C8902A,#e8a83a); }
 </style>
 
-{# ── avatar macro: photo from uploads/students/ or letter fallback ── #}
+{# ── avatar macro: photo or letter fallback ── #}
 {% macro avatar(photo, name, bg_color) %}
 <div class="member-avatar" style="background:{{ bg_color }};">
   {% if photo %}
-    <img src="/uploads/students/{{ photo }}" alt="{{ name }}"
-         onerror="this.style.display='none'"/>
+  
+<img src="/uploads/{{ photo }}" alt="{{ name }}"/>
+
   {% else %}
-    {{ name[0]|upper }}
+    <span class="member-avatar-letter">{{ name[0]|upper }}</span>
   {% endif %}
 </div>
 {% endmacro %}
@@ -193,9 +214,9 @@
   <div class="club-card" onclick="openPanel({{ club.club_id }})">
     <div class="club-banner ct-{{ css_ct }}">
       {% if club.photo %}
-        <img src="/uploads/clubs/{{ club.photo }}" alt="{{ club.club_name }}"/>
+        <img src="{{ url_for('serve_upload', filename=club.photo) }}" alt="{{ club.club_name }}" class="club-banner-img"/>
       {% endif %}
-      <span class="banner-icon">{{ icon }}</span>
+      <span class="club-banner-placeholder">{{ icon }}</span>
     </div>
     <div class="club-body">
       <div class="club-name">{{ club.club_name }}</div>
@@ -236,9 +257,9 @@
   <div class="panel" id="panel-{{ club.club_id }}" style="display:none;">
     <div class="panel-banner ct-{{ css_ct }}">
       {% if club.photo %}
-        <img src="/uploads/clubs/{{ club.photo }}" alt="{{ club.club_name }}"/>
+        <img src="{{ url_for('serve_upload', filename=club.photo) }}" alt="{{ club.club_name }}" class="panel-banner-img"/>
       {% endif %}
-      <span class="panel-icon">{{ icon }}</span>
+      <span class="panel-banner-placeholder">{{ icon }}</span>
       <button class="panel-close" onclick="closePanel()">&times;</button>
     </div>
 

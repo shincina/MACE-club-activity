@@ -1,8 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}Profile — MACE{% endblock %}
 
-
-
 {% block content %}
 
 <!-- Edit Profile Modal -->
@@ -21,7 +19,30 @@
       Update your details below. Register number cannot be changed.
     </p>
 
-    <form method="POST" action="{{ url_for('update_profile') }}">
+    <form method="POST" action="{{ url_for('update_profile') }}" enctype="multipart/form-data">
+
+      <!-- Photo Upload -->
+      <div style="margin-bottom:20px; text-align:center;">
+        <div style="position:relative; display:inline-block;">
+          {% if student.photo %}
+            <img id="previewPhoto" src="{{ url_for('serve_upload', filename=student.photo) }}" 
+                 style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:4px solid var(--blue);">
+          {% else %}
+            <div id="previewPhoto" style="width:100px; height:100px; border-radius:50%; background:var(--blue);
+                 display:flex; align-items:center; justify-content:center; margin:0 auto; border:4px solid var(--blue);">
+              <i class="fas fa-user" style="font-size:42px; color:#fff;"></i>
+            </div>
+          {% endif %}
+          <label for="photoInput" style="position:absolute; bottom:0; right:0; background:var(--gold); 
+                 width:32px; height:32px; border-radius:50%; display:flex; align-items:center; 
+                 justify-content:center; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+            <i class="fas fa-camera" style="color:white; font-size:14px;"></i>
+          </label>
+          <input type="file" id="photoInput" name="photo" accept="image/*" 
+                 style="display:none;" onchange="previewImage(this)">
+        </div>
+        <p style="font-size:11px; color:var(--muted); margin-top:8px;">Click camera icon to upload photo</p>
+      </div>
 
       <!-- Name -->
       <div style="margin-bottom:16px;">
@@ -112,10 +133,15 @@
 
   <!-- Avatar card -->
   <div class="form-card" style="text-align:center;">
-    <div style="width:90px; height:90px; border-radius:50%; background:var(--blue);
-                display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
-      <i class="fas fa-user" style="font-size:38px; color:#fff;"></i>
-    </div>
+    {% if student.photo %}
+      <img src="{{ url_for('serve_upload', filename=student.photo) }}" 
+           style="width:90px; height:90px; border-radius:50%; object-fit:cover; margin:0 auto 16px; border:4px solid var(--blue);">
+    {% else %}
+      <div style="width:90px; height:90px; border-radius:50%; background:var(--blue);
+                  display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
+        <i class="fas fa-user" style="font-size:38px; color:#fff;"></i>
+      </div>
+    {% endif %}
     <h3 style="border:none; margin-bottom:4px; font-size:18px;">{{ student.name }}</h3>
     <p style="color:var(--muted); font-size:13px;">{{ student.reg_no }}</p>
     <span class="badge badge-info" style="margin-top:8px;">{{ student.semester }}</span>
@@ -153,7 +179,6 @@
           <td style="padding:12px 0; color:var(--muted); border-bottom:1px solid #f0f0f0;">Phone</td>
           <td style="padding:12px 0; border-bottom:1px solid #f0f0f0;">
             {{ student.phone or '—' }}
-            
           </td>
         </tr>
         <tr>
@@ -191,6 +216,26 @@
     const modal = document.getElementById('editModal');
     modal.style.display = 'none';
     document.body.style.overflow = '';
+  }
+
+  function previewImage(input) {
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const preview = document.getElementById('previewPhoto');
+        // Replace with img if it's a div, or update src if it's already an img
+        if (preview.tagName === 'DIV') {
+          const img = document.createElement('img');
+          img.id = 'previewPhoto';
+          img.src = e.target.result;
+          img.style.cssText = 'width:100px; height:100px; border-radius:50%; object-fit:cover; border:4px solid var(--blue);';
+          preview.parentNode.replaceChild(img, preview);
+        } else {
+          preview.src = e.target.result;
+        }
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
   }
 
   // Close modal if clicking outside

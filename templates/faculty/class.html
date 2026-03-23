@@ -1,8 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}My Class — MACE{% endblock %}
 
-
-
 {% block content %}
 <style>
 .class-header {
@@ -22,6 +20,43 @@
 .student-table th { padding: 12px 16px; text-align: left; color: #94a3b8; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
 .student-table td { padding: 13px 16px; border-top: 1px solid #f0f2f5; }
 .student-table tr:hover td { background: #fafbff; }
+
+/* Student avatar */
+.student-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.student-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  overflow: hidden;
+  position: relative;
+  background: var(--blue, #1B3A6B);
+}
+
+.student-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.student-avatar-letter {
+  position: relative;
+  z-index: 1;
+}
 
 .progress-bar-wrap { background: #e8ecf2; border-radius: 20px; height: 8px; width: 100px; overflow: hidden; }
 .progress-bar-fill { height: 100%; border-radius: 20px; background: linear-gradient(90deg,var(--blue,#1B3A6B),var(--gold,#C8902A)); }
@@ -77,7 +112,7 @@
   <table>
     <thead>
       <tr>
-        <th>Name</th>
+        <th>Student</th>
         <th>Reg No</th>
         <th>Email</th>
         <th>Clubs</th>
@@ -89,12 +124,25 @@
     </thead>
     <tbody>
       {% for s in class_students %}
+      {% set colours = ['#1B3A6B','#7b1fa2','#1a7a4a','#e65100','#1565c0','#ad1457','#C8902A','#263238'] %}
       <tr>
         <td>
-          <strong>{{ s.name }}</strong>
-          {% if s.pending_certs > 0 %}
-          <span class="pending-dot" title="{{ s.pending_certs }} pending certificate(s)">{{ s.pending_certs }}</span>
-          {% endif %}
+          <div class="student-cell">
+            <div class="student-avatar" style="background:{{ colours[loop.index0 % colours|length] }};">
+              {% if s.photo %}
+                <img src="{{ url_for('serve_upload', filename=s.photo) }}" alt="{{ s.name }}"/>
+
+              {% else %}
+              <span class="student-avatar-letter">{{ s.name[0]|upper }}</span>
+                            {% endif %}
+            </div>
+            <div>
+              <strong>{{ s.name }}</strong>
+              {% if s.pending_certs > 0 %}
+              <span class="pending-dot" title="{{ s.pending_certs }} pending certificate(s)">{{ s.pending_certs }}</span>
+              {% endif %}
+            </div>
+          </div>
         </td>
         <td style="color:#64748b;">{{ s.reg_no }}</td>
         <td style="color:#64748b;font-size:12px;">{{ s.email }}</td>
