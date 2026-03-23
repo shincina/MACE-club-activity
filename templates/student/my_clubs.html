@@ -36,22 +36,26 @@
           </td>
           <td>{{ club.join_date }}</td>
           <td>
-            {% if club.status == 'approved' %}
-              <span class="badge badge-success">Active</span>
-            {% elif club.status == 'pending' %}
+            {% if club.membership_status == 'approved' %}
+              <span class="badge badge-success">Approved</span>
+            {% elif club.membership_status == 'pending' %}
               <span class="badge badge-warning">Pending</span>
             {% else %}
               <span class="badge badge-danger">Rejected</span>
             {% endif %}
           </td>
           <td>
-            {% if club.status == 'approved' and club.role != 'coordinator' %}
-            <form method="POST" action="{{ url_for('leave_club', club_id=club.club_id) }}"
-                  onsubmit="return confirmAction('Leave {{ club.club_name }}?')">
-              <button class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt"></i> Leave</button>
-            </form>
-            {% endif %}
-          </td>
+  {% if club.role != 'coordinator' %}
+  <form method="POST" action="{{ url_for('leave_club', club_id=club.club_id) }}"
+        onsubmit="return confirmAction('Leave {{ club.club_name }}?')">
+    <button class="btn btn-danger btn-sm">
+      <i class="fas fa-sign-out-alt"></i> Leave
+    </button>
+  </form>
+  {% else %}
+    <span class="text-muted">—</span>
+  {% endif %}
+</td>
         </tr>
         {% endfor %}
       </tbody>

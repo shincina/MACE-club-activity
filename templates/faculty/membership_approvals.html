@@ -121,8 +121,7 @@
   <div class="fbar-divider"></div>
   <span class="fbar-label">Status</span>
 
-  <a href="{{ url_for('faculty_membership_approvals', club=club_filter) }}"
-     class="fchip {% if status_filter=='all' %}fc-active{% endif %}">All</a>
+  
   <a href="{{ url_for('faculty_membership_approvals', club=club_filter, status='pending') }}"
      class="fchip {% if status_filter=='pending' %}fc-gold{% endif %}">⏳ Pending</a>
   <a href="{{ url_for('faculty_membership_approvals', club=club_filter, status='approved') }}"

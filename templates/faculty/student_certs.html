@@ -172,6 +172,8 @@
   </a>
 </div>
 
+
+
 <!-- Stats -->
 <div class="stats-row">
   <div class="stat-box"><span class="stat-n">{{ counts.total or 0 }}</span><span class="stat-l">Total</span></div>
@@ -240,21 +242,20 @@
     </div>
 
     <!-- Footer actions -->
-    <div class="cfoot" id="cfoot-{{ cert.certificate_id }}">
-      <button class="cfb cfb-prev" onclick="lbOpen('{{ furl }}','{{ ext }}','{{ cat }}')">🔍 Preview</button>
-      <a class="cfb cfb-dl" href="{{ furl }}" download="{{ fname }}">⬇ Download</a>
-      {% if cert.status == 'pending' %}
-        {% if is_self %}
-          <!-- Self-initiative: approve with points input -->
-          <button class="cfb cfb-app" onclick="openPtsModal({{ cert.certificate_id }})">✅ Approve</button>
-        {% else %}
-          <!-- Club event: approve directly, no points needed -->
-          <button class="cfb cfb-app" onclick="approveCert({{ cert.certificate_id }}, 0)">✅ Approve</button>
-        {% endif %}
-        <button class="cfb cfb-rej" onclick="rejectCert({{ cert.certificate_id }})">❌ Reject</button>
-      {% endif %}
-    </div>
-
+    <!-- Replace ALL your approve/reject buttons with this pattern -->
+<div class="cfoot" id="cfoot-{{ cert.certificate_id }}">
+  <button class="cfb cfb-prev" 
+          onclick="lbOpen('{{ furl }}','{{ ext }}','{{ cat }}')">🔍 Preview</button>
+  <a class="cfb cfb-dl" href="{{ furl }}" download="{{ fname }}">⬇ Download</a>
+  
+  {% if cert.status == 'pending' %}
+    <button class="cfb cfb-app"
+            data-cert-id="{{ cert.certificate_id }}"
+            data-is-self="{{ '1' if is_self else '0' }}">✅ Approve</button>
+    <button class="cfb cfb-rej"
+            data-cert-id="{{ cert.certificate_id }}">❌ Reject</button>
+  {% endif %}
+</div>
   </div>
   {% endfor %}
 </div>
@@ -302,9 +303,12 @@ function closePtsModal() {
   document.getElementById('ptsModal').classList.remove('open');
 }
 function confirmApprove() {
-  const pts = parseInt(document.getElementById('ptsInput').value) || 5;
+  const pts = parseInt(document.getElementById('ptsInput').value);
+  if (!pts || pts < 1) { alert('Enter a valid point value'); return; }
+  
+  const certId = pendingCertId;  // ← save BEFORE closing modal
   closePtsModal();
-  approveCert(pendingCertId, pts);
+  approveCert(certId, pts);      // ← use local variable
 }
 
 function approveCert(certId, points) {
@@ -312,14 +316,47 @@ function approveCert(certId, points) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ points: points })
-  }).then(() => updateCard(certId, 'approved', points));
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      updateCard(certId, 'approved', data.points);  // use server-returned points
+    } else {
+      alert('❌ ' + data.message);  // this will reveal the real error
+    }
+  })
+  .catch(err => alert('Request failed: ' + err));
 }
 
 function rejectCert(certId) {
   fetch(`/faculty/reject_certificate/${certId}`, { method: 'POST' })
-    .then(() => updateCard(certId, 'rejected', 0));
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) updateCard(certId, 'rejected', 0);
+    else alert('❌ ' + data.message);
+  });
 }
+// Replace your existing approve/reject onclick handlers with this
+document.addEventListener('click', function(e) {
+  // Approve button
+  if (e.target.classList.contains('cfb-app')) {
+    const certId = e.target.dataset.certId;
+    const isSelf = e.target.dataset.isSelf === '1';
+    console.log('Approve clicked, certId:', certId, 'isSelf:', isSelf); // debug
+    if (isSelf) {
+      openPtsModal(certId);
+    } else {
+      approveCert(certId, 0);
+    }
+  }
 
+  // Reject button
+  if (e.target.classList.contains('cfb-rej')) {
+    const certId = e.target.dataset.certId;
+    console.log('Reject clicked, certId:', certId); // debug
+    rejectCert(certId);
+  }
+});
 function updateCard(certId, status, points) {
   const ribbon = document.getElementById('ribbon-' + certId);
   const cfoot  = document.getElementById('cfoot-'  + certId);

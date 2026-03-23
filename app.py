@@ -276,14 +276,19 @@ def my_clubs():
     reg_no = session['user_id']
     cursor = mysql.connection.cursor()
     cursor.execute('''
-        SELECT c.*, m.role, m.join_date, f.faculty_name,
-            (SELECT COUNT(*) FROM membership WHERE club_id = c.club_id AND status = 'approved') AS member_count
-        FROM membership m
-        JOIN clubs c ON m.club_id = c.club_id
-        LEFT JOIN faculty f ON c.faculty_incharge = f.faculty_id
-        WHERE m.student_id = %s AND m.status = 'approved'
-        ORDER BY m.join_date DESC
-    ''', (reg_no,))
+    SELECT 
+        c.club_id, c.club_name, c.club_type, c.photo, c.created_date,
+        c.status AS club_status,
+        m.role, m.join_date, m.status AS membership_status,
+        f.faculty_name,
+        (SELECT COUNT(*) FROM membership 
+         WHERE club_id = c.club_id AND status = 'approved') AS member_count
+    FROM membership m
+    JOIN clubs c ON m.club_id = c.club_id
+    LEFT JOIN faculty f ON c.faculty_incharge = f.faculty_id
+    WHERE m.student_id = %s AND m.status = 'approved'
+    ORDER BY m.join_date DESC
+''', (reg_no,))
     my_clubs = cursor.fetchall()
     cursor.close()
     return render_template('student/my_clubs.html', my_clubs=my_clubs)
@@ -305,10 +310,10 @@ def join_club(club_id):
         else:
             cursor.execute('''
                 INSERT INTO membership (student_id, club_id, role, join_date, status)
-                VALUES (%s, %s, 'member', CURDATE(), 'approved')
+                VALUES (%s, %s, 'member', CURDATE(), 'pending')
             ''', (reg_no, club_id))
             mysql.connection.commit()
-            flash('Joined successfully!', 'success')
+            flash('Membership request submitted.', 'success')
     cursor.close()
     return redirect(url_for('student_clubs'))
 
@@ -949,104 +954,93 @@ def faculty_reject_event(event_id):
 
 # Faculty certificate verification route - FIXED VERSION
 # This handles both self-initiative and event certificates properly
-
 @app.route('/faculty/verify_certificate/<int:certificate_id>', methods=['POST'])
 @login_required
 @role_required('faculty')
 def faculty_verify_certificate(certificate_id):
-    """
-    Verify and approve a certificate
-    - For self-initiative: awards custom points from request
-    - For events: checks attendance first, then awards event points or custom points
-    """
     cursor = mysql.connection.cursor()
-    
     try:
+
+        # Get faculty_id from session
+        faculty_id = session['user_id']
+
         # Get certificate details
         cursor.execute('''
-            SELECT c.*, e.points as event_points, e.event_name,
-                   ea.attendance_status
+            SELECT 
+                c.certificate_id, c.student_id, c.event_id,
+                c.certificate_type, c.file_path, c.upload_date,
+                c.status, c.points_awarded, c.activity_category,
+                e.points AS event_points, e.event_name,
+                ea.attendance_status
             FROM certificates c
             LEFT JOIN events e ON c.event_id = e.event_id
-            LEFT JOIN event_attendance ea ON (c.event_id = ea.event_id AND c.student_id = ea.student_id)
+            LEFT JOIN event_attendance ea ON (
+                c.event_id = ea.event_id AND c.student_id = ea.student_id
+            )
             WHERE c.certificate_id = %s
         ''', (certificate_id,))
-        
+
         cert = cursor.fetchone()
-        
+
         if not cert:
             return jsonify({'success': False, 'message': 'Certificate not found'}), 404
-        
+
         if cert['status'] != 'pending':
             return jsonify({'success': False, 'message': 'Certificate already processed'}), 400
-        
+
         student_id = cert['student_id']
         certificate_type = cert['certificate_type']
-        
-        # Get points from request (for self-initiative or manual event points)
+
         data = request.get_json() or {}
         custom_points = data.get('points', 0)
-        
-        # Determine points to award based on certificate type
+
         if certificate_type == 'self_initiative':
-            # Self-initiative: use custom points from modal
             points_to_award = int(custom_points) if custom_points else 5
             description = f"Self-initiative: {cert['activity_category']}"
-            
         else:
-            # Event certificate: check attendance first
             if not cert['event_id']:
                 return jsonify({'success': False, 'message': 'Event not found for certificate'}), 400
-            
-            # Check if student attended the event
             if cert['attendance_status'] != 'present':
                 return jsonify({
-                    'success': False, 
-                    'message': f'Student was {cert["attendance_status"] or "absent"} for this event. Cannot approve certificate.'
+                    'success': False,
+                    'message': f'Student was {cert["attendance_status"] or "absent"} for this event.'
                 }), 400
-            
-            # Use custom points if provided, otherwise use event points
             points_to_award = int(custom_points) if custom_points else (cert['event_points'] or 0)
             description = f"Event participation: {cert['event_name']}"
-        
-        # Update certificate status
+
         cursor.execute('''
             UPDATE certificates 
-            SET status = 'approved',
-                points_awarded = %s,
-                verified_by = %s
+            SET status = 'approved', points_awarded = %s, verified_by = %s
             WHERE certificate_id = %s
-        ''', (points_to_award, session['user_id'], certificate_id))
-        
-        # Add activity points record
+        ''', (points_to_award, faculty_id, certificate_id))
+
         cursor.execute('''
             INSERT INTO activity_points 
             (student_id, event_id, certificate_id, points, description, date_awarded)
             VALUES (%s, %s, %s, %s, %s, NOW())
         ''', (student_id, cert['event_id'], certificate_id, points_to_award, description))
-        
-        # Update student's total points
+
         cursor.execute('''
             UPDATE students 
             SET total_points = total_points + %s
             WHERE reg_no = %s
         ''', (points_to_award, student_id))
-        
+
         mysql.connection.commit()
-        
+
         return jsonify({
-            'success': True, 
+            'success': True,
             'message': 'Certificate approved successfully',
             'points': points_to_award
         }), 200
-        
+
     except Exception as e:
         mysql.connection.rollback()
+        print("VERIFY CERT ERROR:", str(e))
         return jsonify({'success': False, 'message': str(e)}), 500
-        
+
     finally:
         cursor.close()
-
 
 @app.route('/faculty/reject_certificate/<int:certificate_id>', methods=['POST'])
 @login_required
@@ -1305,14 +1299,28 @@ def coordinator_new_event():
         ''', (reg_no, club_id))
 
         if cursor.fetchone():
+            # Handle photo upload
+            photo_path = None
+            photo_file = request.files.get('event_photo')
+            if photo_file and photo_file.filename:
+                import os, time
+                events_folder = os.path.join(app.config['UPLOAD_FOLDER'], 'events')
+                os.makedirs(events_folder, exist_ok=True)  # create folder if not exists
+
+                ext = photo_file.filename.rsplit('.', 1)[-1].lower()
+                filename = f"event_{club_id}_{int(time.time())}.{ext}"
+                photo_file.save(os.path.join(events_folder, filename))
+                photo_path = f"events/{filename}"  # store subfolder + filename
+
             cursor.execute('''
                 INSERT INTO events (club_id, event_name, event_date, event_time, location,
-                    description, max_participants, points, reg_fee, status, created_by)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s)
+                    description, max_participants, points, reg_fee, status, created_by, photo)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s)
             ''', (club_id, request.form['event_name'], request.form['event_date'],
                 request.form['event_time'], request.form['location'],
                 request.form['description'], request.form['max_participants'],
-                request.form['points'], request.form.get('reg_fee_final', 0), reg_no))
+                request.form['points'], request.form.get('reg_fee_final', 0),
+                reg_no, photo_path))   # ← photo_path added
             mysql.connection.commit()
             flash('Event submitted for approval!', 'success')
         else:
@@ -1320,7 +1328,6 @@ def coordinator_new_event():
 
         cursor.close()
         return redirect(url_for('coordinator_dashboard'))
-
     cursor.close()
     return render_template('coordinator/new_event.html', coord_clubs=coord_clubs)
 
@@ -1807,10 +1814,10 @@ def admin_faculty():
 
             if 'hod' in current:
                 new_role = 'HOD+coordinator'
-            elif 'fa' in current:
-                new_role = 'FA+coordinator'
-            else:
+            elif 'faculty' in current:
                 new_role = 'coordinator'
+            else:
+                new_role = 'FA+coordinator'
 
             cursor.execute('UPDATE faculty SET role = %s WHERE faculty_id = %s', (new_role, fid))
             cursor.execute('UPDATE clubs SET faculty_incharge = %s WHERE club_id = %s', (fid, club_id))

@@ -175,7 +175,7 @@
       <label style="font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:6px;">Points to Award</label>
       <input type="number" id="ptsInput" min="1" max="50" value="5"
              style="width:100%;padding:10px 12px;border:2px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;">
-      <div id="ptsHint" style="font-size:11px;color:#94a3b8;margin-top:4px;">Typical: Internship=20, Industrial Visit=15, NPTEL=5</div>
+      <div id="ptsHint" style="font-size:11px;color:#94a3b8;margin-top:4px;">Typical: Internship=20, Industrial Visit=15, NPTEL=50</div>
     </div>
     <div style="display:flex;gap:10px;">
       <button onclick="closePtsModal()"
@@ -209,7 +209,7 @@ function openPtsModal(certId, isSelf) {
   
   if (isSelf) {
     document.getElementById('modalDesc').textContent = 'Enter points for self-initiative certificate.';
-    document.getElementById('ptsHint').textContent = 'Typical: Internship=20, Visit=15, NPTEL=5';
+    document.getElementById('ptsHint').textContent = 'Typical: Internship=20, Visit=15, NPTEL=50';
     document.getElementById('ptsInput').value = 5;
   } else {
     document.getElementById('modalDesc').textContent = 'Enter points for event certificate.';
