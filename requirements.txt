@@ -4,4 +4,4 @@ flask-login
 flask-session
 werkzeug
 pillow
-
+mysqlclient

@@ -37,7 +37,7 @@ CREATE TABLE `activity_points` (
   CONSTRAINT `activity_points_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`reg_no`),
   CONSTRAINT `activity_points_ibfk_2` FOREIGN KEY (`event_id`) REFERENCES `events` (`event_id`),
   CONSTRAINT `activity_points_ibfk_3` FOREIGN KEY (`certificate_id`) REFERENCES `certificates` (`certificate_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=34 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -46,6 +46,7 @@ CREATE TABLE `activity_points` (
 
 LOCK TABLES `activity_points` WRITE;
 /*!40000 ALTER TABLE `activity_points` DISABLE KEYS */;
+INSERT INTO `activity_points` VALUES (21,'B24CS001',NULL,12,20,'2026-03-24 03:26:12','Self-initiative: internship'),(22,'B24CS001',NULL,11,20,'2026-03-24 03:30:42','Self-initiative: internship'),(23,'B24CS013',NULL,20,5,'2026-03-24 21:23:15','Self-initiative: workshop'),(24,'B24CS013',NULL,21,5,'2026-03-24 21:24:19','Self-initiative: workshop'),(25,'B24CS013',NULL,22,5,'2026-03-24 21:24:51','Event participation: None'),(26,'B24CS013',19,23,5,'2026-03-24 21:25:08','Event participation: None'),(27,'B24CS002',NULL,13,5,'2026-03-24 21:25:32','Event participation: None'),(28,'B24CS002',NULL,14,20,'2026-03-24 21:25:49','Self-initiative: internship'),(29,'B24CS002',NULL,15,5,'2026-03-24 21:25:53','Event participation: None'),(30,'B24CS003',NULL,16,5,'2026-03-24 21:26:07','Event participation: None'),(31,'B24CS003',NULL,17,5,'2026-03-24 21:26:09','Event participation: None'),(32,'B24CS004',NULL,18,5,'2026-03-24 21:26:20','Event participation: None'),(33,'B24CS004',NULL,19,5,'2026-03-24 21:26:22','Event participation: None');
 /*!40000 ALTER TABLE `activity_points` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -97,7 +98,7 @@ CREATE TABLE `announcements` (
   KEY `event_id` (`event_id`),
   CONSTRAINT `announcements_ibfk_1` FOREIGN KEY (`club_id`) REFERENCES `clubs` (`club_id`),
   CONSTRAINT `announcements_ibfk_2` FOREIGN KEY (`event_id`) REFERENCES `events` (`event_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -106,6 +107,7 @@ CREATE TABLE `announcements` (
 
 LOCK TABLES `announcements` WRITE;
 /*!40000 ALTER TABLE `announcements` DISABLE KEYS */;
+INSERT INTO `announcements` VALUES (7,'Password','All students and faculties are required to be notified that they can update their password according to their choice',NULL,NULL,'Administrator','all','2026-03-24 01:29:42'),(8,'End Semester Examination 2026 (S4)','End Semester Examination 2026 for S4 will commence on 20 April 2026',NULL,NULL,'Administrator','all','2026-03-24 01:32:24'),(9,'Class extended','KTU has extended Regular classes for S6 and S8 till 7 April 2026  ',NULL,NULL,'Administrator','all','2026-03-24 01:34:02');
 /*!40000 ALTER TABLE `announcements` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -135,7 +137,7 @@ CREATE TABLE `certificates` (
   CONSTRAINT `certificates_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`reg_no`),
   CONSTRAINT `certificates_ibfk_2` FOREIGN KEY (`event_id`) REFERENCES `events` (`event_id`),
   CONSTRAINT `certificates_ibfk_3` FOREIGN KEY (`verified_by`) REFERENCES `faculty` (`faculty_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -144,6 +146,7 @@ CREATE TABLE `certificates` (
 
 LOCK TABLES `certificates` WRITE;
 /*!40000 ALTER TABLE `certificates` DISABLE KEYS */;
+INSERT INTO `certificates` VALUES (11,'B24CS001',NULL,'self_initiative','certificates/B24CS001_1774299967.png','2026-03-24 02:36:07','approved',36,20,NULL,'internship'),(12,'B24CS001',NULL,'self_initiative','certificates/B24CS001_1774300040.png','2026-03-24 02:37:20','approved',36,20,NULL,'internship'),(13,'B24CS002',NULL,'event','certificates/B24CS002_1774303460.png','2026-03-24 03:34:20','approved',36,5,NULL,'workshop'),(14,'B24CS002',NULL,'self_initiative','certificates/B24CS002_1774303516.png','2026-03-24 03:35:16','approved',36,20,NULL,'internship'),(15,'B24CS002',NULL,'event','certificates/B24CS002_1774303712.png','2026-03-24 03:38:32','approved',36,5,NULL,'workshop'),(16,'B24CS003',NULL,'event','certificates/B24CS003_1774303862.png','2026-03-24 03:41:02','approved',36,5,NULL,'workshop'),(17,'B24CS003',NULL,'event','certificates/B24CS003_1774303919.png','2026-03-24 03:41:59','approved',36,5,NULL,'workshop'),(18,'B24CS004',NULL,'event','certificates/B24CS004_1774304010.png','2026-03-24 03:43:30','approved',36,5,NULL,'workshop'),(19,'B24CS004',NULL,'event','certificates/B24CS004_1774304140.png','2026-03-24 03:45:40','approved',36,5,NULL,'hackathon'),(20,'B24CS013',NULL,'self_initiative','certificates/B24CS013_1774304658.png','2026-03-24 03:54:18','approved',36,5,NULL,'workshop'),(21,'B24CS013',NULL,'self_initiative','certificates/B24CS013_1774304764.png','2026-03-24 03:56:04','approved',36,5,NULL,'workshop'),(22,'B24CS013',NULL,'event','certificates/B24CS013_1774304824.png','2026-03-24 03:57:04','approved',36,5,NULL,'hackathon'),(23,'B24CS013',19,'event','certificates/B24CS013_1774304992.png','2026-03-24 03:59:52','approved',36,5,NULL,'workshop');
 /*!40000 ALTER TABLE `certificates` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -165,7 +168,7 @@ CREATE TABLE `clubs` (
   PRIMARY KEY (`club_id`),
   KEY `faculty_incharge` (`faculty_incharge`),
   CONSTRAINT `clubs_ibfk_1` FOREIGN KEY (`faculty_incharge`) REFERENCES `faculty` (`faculty_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -174,7 +177,7 @@ CREATE TABLE `clubs` (
 
 LOCK TABLES `clubs` WRITE;
 /*!40000 ALTER TABLE `clubs` DISABLE KEYS */;
-INSERT INTO `clubs` VALUES (1,'NSS','Social Service',NULL,'2024-01-15','Active',NULL),(2,'IEEE MACE','Technical',NULL,'2024-01-15','Active',NULL),(3,'Literary and Debating Club','Cultural',NULL,'2024-01-15','Active',NULL),(4,'Dance Club','Cultural',NULL,'2024-01-15','Active',NULL),(5,'Sports and Games Association','Sports',NULL,'2024-01-15','Active',NULL),(6,'SAE MACE','Technical',NULL,'2024-01-15','Active',NULL),(7,'ISTE MACE','Technical',NULL,'2024-01-15','Active',NULL),(8,'MACE Film Society','Film',NULL,'2024-01-15','Active',NULL),(9,'ASME MACE','Technical',NULL,'2024-01-15','Active',NULL),(10,'MACE NetX Club','Technical',NULL,'2024-01-15','Active',NULL),(11,'Divaat Club','Arts',NULL,'2024-01-15','Active',NULL),(12,'MACE MUN','Academic',NULL,'2024-01-15','Active',NULL),(13,'AISA MACE','Technical',NULL,'2024-01-15','Active',NULL),(14,'Quiz Club','Academic',NULL,'2024-01-15','Active',NULL),(15,'Music Club','Cultural',NULL,'2024-01-15','Active',NULL),(16,'ASCE MACE','Technical',NULL,'2024-01-15','Active',NULL),(17,'ENCIDE MACE','Technical',NULL,'2024-01-15','Active',NULL),(18,'ENCON Club','Environmental',NULL,'2024-01-15','Active',NULL),(19,'Developers Students Club (DSC)','Technical',NULL,'2024-01-15','Active',NULL);
+INSERT INTO `clubs` VALUES (1,'NSS','Social Service',24,'2024-01-15','Active','clubs/NSS.png'),(2,'IEEE MACE','Technical',25,'2024-01-15','Active','clubs/IEEE.png'),(3,'Literary and Debating Club','Cultural',NULL,'2024-01-15','Active','clubs/Literary.png'),(4,'Dance Club','Cultural',30,'2024-01-15','Active','clubs/Dance.png'),(5,'Sports and Games Association','Sports',31,'2024-01-15','Active','clubs/Sports.png'),(6,'SAE MACE','Technical',34,'2024-01-15','Active','clubs/SAE.png'),(7,'ISTE MACE','Technical',33,'2024-01-15','Active','clubs/ISTE.png'),(8,'MACE Film Society','Film',26,'2024-01-15','Active','clubs/Film.png'),(9,'ASME MACE','Technical',29,'2024-01-15','Active','clubs/ASME.png'),(10,'MACE NetX Club','Technical',NULL,'2024-01-15','Active','clubs/NetX.png'),(11,'Divaat Club','Arts',32,'2024-01-15','Active','clubs/Divaat.png'),(12,'MACE MUN','Academic',35,'2024-01-15','Active','clubs/MUN.png'),(13,'AISA MACE','Technical',NULL,'2024-01-15','Active','clubs/AISA.png'),(14,'Quiz Club','Academic',27,'2024-01-15','Active','clubs/Quiz.png'),(15,'Music Club','Cultural',28,'2024-01-15','Active','clubs/Music.png'),(16,'ASCE MACE','Technical',NULL,'2024-01-15','Active','clubs/ASCE.png'),(17,'ENCIDE MACE','Technical',33,'2024-01-15','Active','clubs/Encide.png'),(18,'ENCON Club','Environmental',NULL,'2024-01-15','Active','clubs/ENCON.png'),(19,'Developers Students Club (DSC)','Technical',33,'2024-01-15','Active','clubs/DSC.png'),(21,'Google Developers Group (GDG)','Technical',36,'2026-03-24','Active','clubs/GDG.png');
 /*!40000 ALTER TABLE `clubs` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -222,7 +225,7 @@ CREATE TABLE `event_attendance` (
   KEY `student_id` (`student_id`),
   CONSTRAINT `event_attendance_ibfk_1` FOREIGN KEY (`event_id`) REFERENCES `events` (`event_id`),
   CONSTRAINT `event_attendance_ibfk_2` FOREIGN KEY (`student_id`) REFERENCES `students` (`reg_no`)
-) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -231,6 +234,7 @@ CREATE TABLE `event_attendance` (
 
 LOCK TABLES `event_attendance` WRITE;
 /*!40000 ALTER TABLE `event_attendance` DISABLE KEYS */;
+INSERT INTO `event_attendance` VALUES (15,16,'B24CS013','NA','paid'),(16,19,'B24CS004','NA','not_paid'),(17,20,'B24CS004','NA','not_paid'),(18,19,'B24CS007','NA','not_paid'),(19,20,'B24CS007','NA','not_paid'),(20,19,'B24CS001','NA','not_paid'),(21,20,'B24CS001','NA','not_paid'),(22,19,'B24CS002','NA','not_paid'),(23,20,'B24CS002','NA','not_paid'),(24,19,'B24CS005','NA','not_paid'),(25,17,'B24CS005','NA','not_paid'),(26,19,'B24CS013','NA','not_paid'),(27,20,'B24CS013','NA','not_paid');
 /*!40000 ALTER TABLE `event_attendance` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -258,7 +262,7 @@ CREATE TABLE `events` (
   PRIMARY KEY (`event_id`),
   KEY `club_id` (`club_id`),
   CONSTRAINT `events_ibfk_1` FOREIGN KEY (`club_id`) REFERENCES `clubs` (`club_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -267,6 +271,7 @@ CREATE TABLE `events` (
 
 LOCK TABLES `events` WRITE;
 /*!40000 ALTER TABLE `events` DISABLE KEYS */;
+INSERT INTO `events` VALUES (13,7,'NLP Workshop','2026-03-01','13:00:00','Seminar Hall 3 ',' NLP Workshop organized as part of  Takshak\'24 by Computer Science Engineering Department in collaboration with ISTE MACE SC at Mar Athanasius College of Engineering! Led by Dr. Shailesh Sivan, Assistant Professor at CUSAT, this workshop is designed for all skill levels, ensuring everyone gains a deeper understanding of how machines process human language.',50,5,'approved','B24CS013',0,'events/Screenshot 2026-03-24 041053.png'),(14,7,'TECHNOVA - HackForge','2026-03-10','17:30:00','MACE Kothamangalam','A Hackathon Bootcamp & Mini Hackathon\r\n\r\nNew to hackathons? Start here.\r\nISTE MACE presents a completely beginner-friendly 3-day bootcamp to turn your ideas into working projects. No prior experience required.',50,5,'approved','B24CS013',150,'events/Screenshot 2026-03-24 041950.png'),(15,7,'Nav Kerala Hackfest','2026-03-29','09:00:00','MACE Kothamangalam','Talent deserves to be showcased, and here comes your stage! \r\n\r\nNav Kerala Global Startup Summit presents an open hackathon at Mar Athanasius College of Engineering, Kothamangalam, Kerala -\r\nNav Kerala Hackfest',150,5,'approved','B24CS013',150,'events/Screenshot 2026-03-24 042253.png'),(16,7,'TECHNOVA - CTRL+ALT+ELITE','2026-03-15','17:30:00','online','Ready to prove you’ve got the fastest fingers in the room?\r\n \r\n ISTE MACE proudly presents CTRL+ALT+ELITE  — an exciting online typing challenge where speed meets skill! ',100,5,'approved','B24CS013',30,'events/Screenshot 2026-03-24 042528.png'),(17,7,'DECODE the hackathon','2026-03-30','08:30:00','L212','Welcome to DECODE a beginner friendly guide to hackathons presented by Encide MACE.\r\nThis event is specially designed for first-timers yet curious learners and anyone who has the urge to explore the technical world.',100,5,'approved','B24CS013',0,'events/event_7_1774307867.png'),(19,21,'Zero to Hello Cloud AI','2026-03-25','19:00:00','Online','Unlock the Power of Cloud & AI !\r\n\r\n Hello to Cloud AI : Online session\r\n\r\nStep into the future with Google Cloud Platform (GCP) and Gemini AI — your ultimate tools for smarter projects, coding, and innovation. \r\n',100,5,'approved','B24CS013',0,'events/ZerotoHello.png'),(20,21,'Lumora','2026-03-26','09:00:00','Indoor Auditorium','\" Design is the bridge between technology and art\"\r\n\r\nGet ready to turn your ideas into digital masterpieces! We\'re thrilled to announce that LÚMORA 2026 - The Light of Design the ultimate UI/UX hackathon, is happening on January 31st and February 1st at Mar Athanasius College of Engineering! ',150,5,'approved','B24CS013',0,'events/event_21_1774318184.png');
 /*!40000 ALTER TABLE `events` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -288,7 +293,7 @@ CREATE TABLE `faculty` (
   `photo` varchar(500) DEFAULT NULL,
   PRIMARY KEY (`faculty_id`),
   UNIQUE KEY `email` (`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=23 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=37 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -297,7 +302,7 @@ CREATE TABLE `faculty` (
 
 LOCK TABLES `faculty` WRITE;
 /*!40000 ALTER TABLE `faculty` DISABLE KEYS */;
-INSERT INTO `faculty` VALUES (18,'Prof. Joby George','joby.george@mace.ac.in','Computer Science and Engineering',NULL,'123','HOD',NULL),(19,'Dr. Aji Joy','aji.joy@mace.ac.in','Electronics and Communication Engineering',NULL,'123','HOD',NULL),(20,'Dr. Elson John','elson.john@mace.ac.in','Civil Engineering',NULL,'123','HOD',NULL),(21,'Dr. Siny Paul','siny.paul@mace.ac.in','Electrical and Electronics Engineering',NULL,'123','HOD',NULL),(22,'Dr. Soni Kuriakose','soni.kuriakose@mace.ac.in','Mechanical Engineering',NULL,'123','HOD',NULL);
+INSERT INTO `faculty` VALUES (18,'Prof. Joby George','joby.george@mace.ac.in','Computer Science and Engineering','-','123','HOD','faculty/Prof. Joby George.png'),(19,'Dr. Aji Joy','aji.joy@mace.ac.in','Electronics and Communication Engineering','-','123','HOD','faculty/Dr. Aji Joy.png'),(20,'Dr. Elson John','elson.john@mace.ac.in','Civil Engineering','-','123','HOD','faculty/DR. Elson John.png'),(21,'Dr. Siny Paul','siny.paul@mace.ac.in','Electrical and Electronics Engineering','-','123','HOD','faculty/Dr. Siny Paul.png'),(22,'Dr. Soni Kuriakose','soni.kuriakose@mace.ac.in','Mechanical Engineering','-','123','HOD','faculty/Dr. Soni Kuriakose.png'),(24,'Prof. Bybin Paul','bybin.paul@mace.ac.in','CE','-','123','coordinator','faculty/faculty_bybin.paul_1774292496.png'),(25,'Prof. Neethu Salim','neethu.salim@mace.ac.in','SH','-','123','coordinator','faculty/faculty_neethu.salim_1774292648.png'),(26,'Dr. Reenu George','reenu.george@mace.ac.in','EE','-','123','coordinator','faculty/faculty_reenu.george_1774292807.png'),(27,'Dr. Joby Joseph','joby.joseph@mace.ac.in','ME','-','123','coordinator','faculty/faculty_joby.joseph_1774292921.png'),(28,'Dr. Vinod Yeldho Baby','vinod.baby@mace.ac.in','ME','-','123','coordinator','faculty/faculty_vinod.baby_1774293021.png'),(29,'Dr. Bobin Cherian Jos','bobin.jos@mace.ac.in','ME','-','123','coordinator','faculty/faculty_bobin.jos_1774294435.png'),(30,'Dr. Aby Thomas','aby.thomas@mace.ac.in','EC','-','123','coordinator','faculty/faculty_aby.thomas_1774294525.png'),(31,'Prof. Vinod Kunjappan','vinod.kunjappan@mace.ac.in','CE','-','123','coordinator','faculty/faculty_vinod.kunjappan_1774294669.png'),(32,'Prof. Nithin Eldho Subash','nithin.subash@mace.ac.in','ME','-','123','coordinator','faculty/faculty_nithin.subash_1774294767.png'),(33,'Prof. Eldo P Elias','eldo.elias@mace.ac.in','CS','S2CS','123','FA+coordinator','faculty/faculty_eldo.elias_1774294877.png'),(34,'Dr. Biju Cherian','biju.cherian@mace.ac.in','ME','-','123','coordinator','faculty/faculty_biju.cherian_1774294978.png'),(35,'Dr. Deepak Eldho Babu','deepak.babu@mace.ac.in','ME','-','123','coordinator','faculty/faculty_deepak.babu_1774295081.png'),(36,'Prof Basil Joy','basil.joy@mace.ac.in','CS','S4CS','123','FA+coordinator','faculty/faculty_basil.joy_1774295732.png');
 /*!40000 ALTER TABLE `faculty` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -320,7 +325,7 @@ CREATE TABLE `membership` (
   KEY `club_id` (`club_id`),
   CONSTRAINT `membership_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`reg_no`),
   CONSTRAINT `membership_ibfk_2` FOREIGN KEY (`club_id`) REFERENCES `clubs` (`club_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=34 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -329,6 +334,7 @@ CREATE TABLE `membership` (
 
 LOCK TABLES `membership` WRITE;
 /*!40000 ALTER TABLE `membership` DISABLE KEYS */;
+INSERT INTO `membership` VALUES (12,'B24CS003',2,'member','2026-03-24','approved'),(13,'B24CS003',7,'member','2026-03-24','approved'),(14,'B24CS003',1,'member','2026-03-24','approved'),(15,'B24CS001',1,'member','2026-03-24','approved'),(16,'B24CS001',7,'member','2026-03-24','approved'),(17,'B24CS001',12,'member','2026-03-24','approved'),(18,'B24CS002',19,'member','2026-03-24','approved'),(19,'B24CS002',17,'member','2026-03-24','approved'),(20,'B24CS002',7,'member','2026-03-24','approved'),(21,'B24CS013',19,'member','2026-03-24','approved'),(22,'B24CS013',17,'member','2026-03-24','approved'),(23,'B24CS013',7,'coordinator','2026-03-24','approved'),(24,'B24CS013',21,'coordinator','2026-03-24','approved'),(25,'B24CS004',1,'member','2026-03-24','pending'),(26,'B24CS004',21,'member','2026-03-24','pending'),(27,'B24CS004',7,'member','2026-03-24','pending'),(28,'B24CS004',15,'member','2026-03-24','pending'),(29,'B24CS007',21,'member','2026-03-24','pending'),(30,'B24CS007',19,'member','2026-03-24','pending'),(31,'B24CS007',17,'member','2026-03-24','pending'),(32,'B24CS007',7,'member','2026-03-24','pending'),(33,'B24CS002',21,'member','2026-03-24','pending');
 /*!40000 ALTER TABLE `membership` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -362,6 +368,7 @@ CREATE TABLE `students` (
 
 LOCK TABLES `students` WRITE;
 /*!40000 ALTER TABLE `students` DISABLE KEYS */;
+INSERT INTO `students` VALUES ('B24CS001','Aayisha Muhammed','b24cs001@mace.ac.in','9723654781',1,'S4','123',40,'students/Aayisha.jpg'),('B24CS002','Abhinav Vinod','b24cs002@mace.ac.in','9728925673',1,'S4','123',30,'students/Abhinav.png'),('B24CS003','Adarsh Prasad','b24cs003@mace.ac.in','9728162873',1,'S4','123',10,'students/Adharsh.png'),('B24CS004','Aditi M','b24cs004@mace.ac.in','09742948267',1,'S4','123',10,'students/student_B24CS004_1774298192.png'),('B24CS005','Akash Mathew','b24cs005@mace.ac.in','09742948267',1,'S4','123',0,'students/student_B24CS005_1774298587.png'),('B24CS007','Aleena Marie Thampi','b24cs007@mace.ac.in','9567290356',1,'S4','123',0,'students/student_B24CS007_1774298797.png'),('B24CS008','Alfi Vadakkan','b24cs008@mace.ac.in','9529103547',1,'S4','123',0,'students/student_B24CS008_1774299057.png'),('B24CS010','Alna Biju Gregory','b24cs010@mace.ac.in','09742948267',1,'S4','123',0,'students/student_B24CS010_1774299196.png'),('B24CS011','Amit R','b24cs011@mace.ac.in','09742948267',1,'S4','123',0,'students/student_B24CS011_1774299274.png'),('B24CS012','Anjana A S','b24cs012@mace.ac.in','09742948267',1,'S4','123',0,'students/student_B24CS012_1774299376.png'),('B24CS013','Shincina Shinto','b24cs013@mace.ac.in','9745960340',1,'S4','123',20,'students/student_B24CS013_1774304516.png');
 /*!40000 ALTER TABLE `students` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -374,4 +381,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-03-23 22:24:46
+-- Dump completed on 2026-03-24 23:34:32
