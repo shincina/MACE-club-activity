@@ -420,10 +420,15 @@ def student_activity_points():
     progress     = min(total_points, 100)
 
     cursor.execute('''
-        SELECT ap.*, e.event_name FROM activity_points ap
-        LEFT JOIN events e ON ap.event_id = e.event_id
-        WHERE ap.student_id = %s ORDER BY ap.date_awarded DESC
-    ''', (reg_no,))
+    SELECT ap.point_id, ap.event_id, ap.certificate_id, ap.points, ap.date_awarded,
+           e.event_name,
+           c.activity_category, c.file_path, c.certificate_type
+    FROM activity_points ap
+    LEFT JOIN events       e ON ap.event_id       = e.event_id
+    LEFT JOIN certificates c ON ap.certificate_id = c.certificate_id
+    WHERE ap.student_id = %s
+    ORDER BY ap.date_awarded DESC
+''', (reg_no,))
     points_history = cursor.fetchall()
 
     cursor.execute('SELECT * FROM certificates WHERE student_id = %s ORDER BY upload_date DESC', (reg_no,))
@@ -504,49 +509,61 @@ def certificate_detail(cert_id):
 @role_required('student')
 def upload_certificate():
     if request.method == 'GET':
-        return render_template('student/upload_certificate.html')
+        cursor = mysql.connection.cursor()
+        cursor.execute('''
+            SELECT e.event_id, e.event_name, e.event_date, c.club_name
+            FROM event_attendance ea
+            JOIN events e ON ea.event_id = e.event_id
+            JOIN clubs  c ON e.club_id   = c.club_id
+            WHERE ea.student_id = %s AND e.status = 'approved'
+            ORDER BY e.event_date DESC
+        ''', (session['user_id'],))
+        my_events = cursor.fetchall()
+        cursor.close()
+        return render_template('student/upload_certificate.html', my_events=my_events)
 
-    # ✅ match the form's name="certificate_file"
     if 'certificate_file' not in request.files:
         flash('No file selected.', 'error')
         return redirect(url_for('upload_certificate'))
 
     file              = request.files['certificate_file']
-    # ✅ match the form's name="activity_category"
     activity_category = request.form.get('activity_category')
     cert_type         = request.form.get('certificate_type', 'self_initiative')
+    event_id          = request.form.get('event_id') or None  # only set for event type
 
     if file.filename == '':
         flash('No file selected.', 'error')
         return redirect(url_for('upload_certificate'))
 
-    # ✅ images only
     ALLOWED = {'png', 'jpg', 'jpeg', 'webp'}
     ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
 
     if ext in ALLOWED:
-        filename = secure_filename(
-            f"{session['user_id']}_{int(datetime.now().timestamp())}.{ext}"
-        )
+        filename     = secure_filename(f"{session['user_id']}_{int(datetime.now().timestamp())}.{ext}")
         certs_folder = os.path.join(app.config['UPLOAD_FOLDER'], 'certificates')
         os.makedirs(certs_folder, exist_ok=True)
         file.save(os.path.join(certs_folder, filename))
 
         cursor = mysql.connection.cursor()
         cursor.execute('''
-            INSERT INTO certificates
-                (student_id, certificate_type, file_path, status, activity_category)
-            VALUES (%s, %s, %s, 'pending', %s)
-        ''', (session['user_id'], cert_type, f'certificates/{filename}', activity_category))
+    INSERT INTO certificates
+        (student_id, event_id, certificate_type, file_path, status, activity_category)
+    VALUES (%s, %s, %s, %s, 'pending', %s)
+''', (
+    session['user_id'],
+    event_id if cert_type == 'event' else None,
+    cert_type,
+    f'certificates/{filename}',
+    activity_category if cert_type == 'self_initiative' else None
+))
         mysql.connection.commit()
         cursor.close()
         flash('Certificate uploaded successfully!', 'success')
     else:
-        flash('Invalid file type. Only JPG, PNG, WEBP allowed.', 'error')
+        flash('Only JPG, PNG, WEBP allowed.', 'error')
         return redirect(url_for('upload_certificate'))
 
     return redirect(url_for('my_certificates'))
-
 
 @app.route('/student/profile')
 @login_required

@@ -1,44 +1,68 @@
 {% extends 'base.html' %}
 {% block title %}Upload Certificate — MACE{% endblock %}
 
-
-
-
 {% block content %}
 <div class="page-header">
   <h2>Upload Certificate</h2>
   <p>Submit certificates for self-initiative activities to earn activity points</p>
 </div>
 
-<div style="display:grid; grid-template-columns:1fr 1fr; gap:22px; align-items:start;">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start;">
 
   <div class="form-card">
     <h3><i class="fas fa-upload" style="margin-right:8px;color:var(--gold)"></i>Submit Certificate</h3>
     <form method="POST" enctype="multipart/form-data">
+
+      <!-- Type -->
       <div class="form-group">
         <label>Certificate Type</label>
-        <select name="certificate_type" required>
+        <select name="certificate_type" id="certType" required onchange="toggleEventField()">
           <option value="">-- Select Type --</option>
           <option value="self_initiative">Self Initiative</option>
           <option value="event">Event Certificate</option>
         </select>
       </div>
+
+      <!-- Event dropdown — only shown when type = event -->
+      <div class="form-group" id="eventGroup" style="display:none;">
+        <label>Select Event</label>
+        <select name="event_id" id="eventSelect">
+          <option value="">-- Select Event --</option>
+          {% for e in my_events %}
+          <option value="{{ e.event_id }}">
+            {{ e.event_name }} — {{ e.club_name }}
+            {% if e.event_date %}({{ e.event_date.strftime('%d %b %Y') if e.event_date else '' }}){% endif %}
+          </option>
+          {% endfor %}
+        </select>
+        {% if not my_events %}
+        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">
+          No events found. Register for events first.
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Category -->
       <div class="form-group">
         <label>Activity Category</label>
         <select name="activity_category" required>
           <option value="">-- Select Category --</option>
           <option value="internship">Internship (20 pts)</option>
           <option value="industrial_visit">Industrial Visit (15 pts)</option>
-          <option value="nptel">NPTEL Course (5 pts)</option>
+          <option value="nptel">NPTEL Course (50 pts)</option>
           <option value="competition_win">Competition Win (5 pts)</option>
           <option value="workshop">Workshop / Webinar (5 pts)</option>
           <option value="hackathon">Hackathon (5 pts)</option>
         </select>
       </div>
+
+      <!-- File -->
       <div class="form-group">
         <label>Certificate File (JPG / PNG)</label>
         <input type="file" name="certificate_file" accept="image/*" required/>
+        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Accepted: JPG, PNG, WEBP only</div>
       </div>
+
       <button type="submit" class="btn btn-primary" style="width:100%">
         <i class="fas fa-upload"></i> Upload Certificate
       </button>
@@ -60,10 +84,22 @@
         </tbody>
       </table>
     </div>
-<!-- CORRECT -->
-<a href="{{ url_for('my_certificates') }}" class="btn btn-outline" style="width:100%;justify-content:center;">
-  <i class="fas fa-list"></i> View My Certificates
-</a>
+    <a href="{{ url_for('my_certificates') }}" class="btn btn-outline"
+       style="width:100%;justify-content:center;margin-top:12px;">
+      <i class="fas fa-list"></i> View My Certificates
+    </a>
   </div>
+
 </div>
+
+<script>
+function toggleEventField() {
+  const type      = document.getElementById('certType').value;
+  const group     = document.getElementById('eventGroup');
+  const select    = document.getElementById('eventSelect');
+  const isEvent   = type === 'event';
+  group.style.display  = isEvent ? 'block' : 'none';
+  select.required      = isEvent;
+}
+</script>
 {% endblock %}

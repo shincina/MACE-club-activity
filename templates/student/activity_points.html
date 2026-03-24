@@ -3,20 +3,17 @@
 
 {% block content %}
 <style>
-/* ── Progress ────────────────────────────────────────────────────── */
+/* ── Progress section ────────────────────────────────────────────── */
 .progress-section {
   background: #fff; border-radius: 14px; padding: 20px 24px;
   box-shadow: 0 2px 10px rgba(0,0,0,.06); border: 1px solid #e8ecf2;
   margin-bottom: 24px;
 }
 .progress-section h4 { font-size: 14px; font-weight: 700; color: #1a2340; margin-bottom: 14px; }
-.progress-wrap {
-  background: #f1f5f9; border-radius: 20px; height: 22px;
-  overflow: hidden; margin-bottom: 8px;
-}
+.progress-wrap { background: #f1f5f9; border-radius: 20px; height: 22px; overflow: hidden; margin-bottom: 8px; }
 .progress-bar {
   height: 100%; border-radius: 20px; min-width: 24px;
-  background: linear-gradient(90deg, #C8902A, #e8a83a);
+  background: linear-gradient(90deg,#C8902A,#e8a83a);
   display: flex; align-items: center; justify-content: flex-end;
   padding-right: 10px; transition: width .6s ease;
 }
@@ -28,41 +25,63 @@
 .timeline-wrap { position: relative; padding-left: 36px; margin-top: 6px; }
 .timeline-wrap::before {
   content: ''; position: absolute; left: 11px; top: 0; bottom: 0;
-  width: 2px; background: linear-gradient(to bottom, #C8902A, #e2e6ed); border-radius: 2px;
+  width: 2px; background: linear-gradient(to bottom,#C8902A,#e2e6ed); border-radius: 2px;
 }
-.tl-item { position: relative; margin-bottom: 16px; }
+.tl-item { position: relative; margin-bottom: 14px; }
 .tl-dot {
-  position: absolute; left: -29px; top: 14px;
+  position: absolute; left: -29px; top: 16px;
   width: 14px; height: 14px; border-radius: 50%;
   border: 2px solid #fff; z-index: 1;
 }
 .tl-dot.event { background: #1B3A6B; box-shadow: 0 0 0 2px #1B3A6B; }
 .tl-dot.cert  { background: #C8902A; box-shadow: 0 0 0 2px #C8902A; }
-.tl-dot.other { background: #6366f1; box-shadow: 0 0 0 2px #6366f1; }
+
 .tl-card {
   background: #fff; border: 1px solid #e8ecf2; border-radius: 12px;
-  padding: 14px 18px; box-shadow: 0 1px 6px rgba(0,0,0,.05);
+  padding: 13px 16px; box-shadow: 0 1px 6px rgba(0,0,0,.04);
   display: flex; align-items: center; gap: 14px; transition: box-shadow .15s;
 }
 .tl-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.10); }
+
+/* left icon box */
 .tl-icon {
-  width: 40px; height: 40px; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px; flex-shrink: 0;
+  width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 17px;
 }
 .tl-icon.event { background: #e8f0fe; }
 .tl-icon.cert  { background: #fef3c7; }
-.tl-icon.other { background: #ede9fe; }
+
+/* middle text */
 .tl-body { flex: 1; min-width: 0; }
-.tl-title { font-size: 14px; font-weight: 700; color: #1a2340; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tl-meta  { font-size: 11px; color: #94a3b8; margin-top: 3px; }
-.tl-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
-.tl-pts   { font-size: 16px; font-weight: 800; color: #2e7d32; background: #f0fdf4; padding: 3px 10px; border-radius: 20px; }
+.tl-title {
+  font-size: 13px; font-weight: 700; color: #1a2340;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-bottom: 5px;
+}
+.tl-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag {
+  font-size: 10px; font-weight: 700; padding: 2px 9px;
+  border-radius: 20px; white-space: nowrap;
+}
+.tag-event { background: #e8f0fe; color: #1557b0; }
+.tag-self  { background: #fef3c7; color: #92400e; }
+.tag-type  { background: #f0fdf4; color: #166534; }
+
+/* right section */
+.tl-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
+.tl-pts   { font-size: 15px; font-weight: 800; color: #2e7d32; background: #f0fdf4; padding: 3px 10px; border-radius: 20px; }
 .tl-date  { font-size: 11px; color: #94a3b8; white-space: nowrap; }
-.tl-type-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
-.badge-event { background: #e8f0fe; color: #1557b0; }
-.badge-cert  { background: #fef3c7; color: #92400e; }
-.badge-other { background: #ede9fe; color: #4f46e5; }
+
+/* eye button */
+.btn-eye {
+  background: none; border: 1px solid #e2e6ed; border-radius: 7px;
+  padding: 4px 10px; color: #6366f1; font-size: 12px;
+  cursor: pointer; transition: all .15s; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+}
+.btn-eye:hover { background: #eef2ff; border-color: #6366f1; }
+
+/* date group header */
 .date-group {
   font-size: 11px; font-weight: 700; color: #94a3b8;
   text-transform: uppercase; letter-spacing: .08em;
@@ -71,9 +90,7 @@
 }
 .date-group::after { content: ''; flex: 1; height: 1px; background: #e8ecf2; }
 
-/* ═══════════════════════════════════════════════════════════════════
-   POPUP OVERLAY
-═══════════════════════════════════════════════════════════════════ */
+/* ── Popup ───────────────────────────────────────────────────────── */
 .ap-overlay {
   display: none; position: fixed; inset: 0; z-index: 99999;
   background: rgba(10,15,40,.82); backdrop-filter: blur(6px);
@@ -91,54 +108,35 @@
 }
 @keyframes apUp { from{transform:translateY(40px) scale(.92);opacity:0} to{transform:translateY(0) scale(1);opacity:1} }
 
-/* confetti canvas sits behind content */
-#confettiCanvas {
-  position: absolute; inset: 0; width: 100%; height: 100%;
-  pointer-events: none; border-radius: 24px;
-}
+#confettiCanvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; border-radius:24px; }
 
-.ap-emoji  { font-size: 4.5rem; margin-bottom: 12px; display: block; position: relative; z-index: 1; animation: bounce 1s ease infinite alternate; }
+.ap-emoji { font-size:4.5rem; margin-bottom:12px; display:block; position:relative; z-index:1; animation:bounce 1s ease infinite alternate; }
 @keyframes bounce { from{transform:translateY(0)} to{transform:translateY(-10px)} }
+.ap-title { font-size:22px; font-weight:800; color:#1a2340; margin-bottom:10px; position:relative; z-index:1; }
+.ap-msg   { font-size:14px; color:#64748b; line-height:1.7; margin-bottom:24px; position:relative; z-index:1; }
+.ap-pts-big   { font-size:48px; font-weight:900; line-height:1; margin-bottom:6px; position:relative; z-index:1; }
+.ap-pts-label { font-size:12px; font-weight:600; color:#94a3b8; margin-bottom:22px; position:relative; z-index:1; }
 
-.ap-title {
-  font-size: 22px; font-weight: 800; color: #1a2340;
-  margin-bottom: 10px; position: relative; z-index: 1;
-}
-.ap-msg {
-  font-size: 14px; color: #64748b; line-height: 1.7;
-  margin-bottom: 24px; position: relative; z-index: 1;
-}
-.ap-pts-big {
-  font-size: 48px; font-weight: 900; line-height: 1;
-  margin-bottom: 6px; position: relative; z-index: 1;
-}
-.ap-pts-label { font-size: 12px; font-weight: 600; color: #94a3b8; margin-bottom: 22px; position: relative; z-index: 1; }
+.ap-popup.success      { border-top:5px solid #22c55e; }
+.ap-popup.success .ap-pts-big { color:#2e7d32; }
+.ap-popup.progress-var { border-top:5px solid #C8902A; }
+.ap-popup.progress-var .ap-pts-big { color:#C8902A; }
 
-/* success variant */
-.ap-popup.success .ap-pts-big { color: #2e7d32; }
-.ap-popup.success { border-top: 5px solid #22c55e; }
-
-/* progress variant */
-.ap-popup.progress-var .ap-pts-big { color: #C8902A; }
-.ap-popup.progress-var { border-top: 5px solid #C8902A; }
-
-/* mini progress bar inside popup */
-.ap-mini-bar-wrap { background: #f1f5f9; border-radius: 20px; height: 10px; overflow: hidden; margin-bottom: 20px; position: relative; z-index: 1; }
-.ap-mini-bar { height: 100%; border-radius: 20px; background: linear-gradient(90deg,#C8902A,#e8a83a); transition: width 1s ease .3s; }
+.ap-mini-bar-wrap { background:#f1f5f9; border-radius:20px; height:10px; overflow:hidden; margin-bottom:20px; position:relative; z-index:1; }
+.ap-mini-bar { height:100%; border-radius:20px; background:linear-gradient(90deg,#C8902A,#e8a83a); transition:width 1s ease .3s; }
 
 .ap-btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 12px 28px; border: none; border-radius: 12px;
-  font-size: 14px; font-weight: 700; cursor: pointer;
-  text-decoration: none; transition: all .2s; position: relative; z-index: 1;
-  margin: 4px;
+  display:inline-flex; align-items:center; gap:8px;
+  padding:12px 28px; border:none; border-radius:12px;
+  font-size:14px; font-weight:700; cursor:pointer;
+  text-decoration:none; transition:all .2s; position:relative; z-index:1; margin:4px;
 }
-.ap-btn-primary { background: linear-gradient(135deg,#1B3A6B,#2a52a0); color: #fff; }
-.ap-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(27,58,107,.35); }
-.ap-btn-gold { background: linear-gradient(135deg,#C8902A,#e8a83a); color: #fff; }
-.ap-btn-gold:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(200,144,42,.35); }
-.ap-btn-ghost { background: #f1f5f9; color: #374151; }
-.ap-btn-ghost:hover { background: #e2e8f0; }
+.ap-btn-primary { background:linear-gradient(135deg,#1B3A6B,#2a52a0); color:#fff; }
+.ap-btn-primary:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(27,58,107,.35); }
+.ap-btn-gold    { background:linear-gradient(135deg,#C8902A,#e8a83a); color:#fff; }
+.ap-btn-gold:hover    { transform:translateY(-2px); box-shadow:0 6px 20px rgba(200,144,42,.35); }
+.ap-btn-ghost   { background:#f1f5f9; color:#374151; }
+.ap-btn-ghost:hover   { background:#e2e8f0; }
 </style>
 
 <div class="page-header">
@@ -197,18 +195,25 @@
   {% if points_history %}
   <div style="padding:16px 20px 20px;">
     <div class="timeline-wrap">
+
       {% set ns = namespace(last_date='') %}
       {% for row in points_history %}
+
+        {# ── resolve date string ──────────────────────────────── #}
         {% if row.date_awarded %}
           {% if row.date_awarded is string %}
             {% set row_date = row.date_awarded[:10] %}
+            {% set row_date_display = row.date_awarded[:10] %}
           {% else %}
             {% set row_date = row.date_awarded.strftime('%Y-%m-%d') %}
+            {% set row_date_display = row.date_awarded.strftime('%d %b %Y') %}
           {% endif %}
         {% else %}
           {% set row_date = 'Unknown' %}
+          {% set row_date_display = '—' %}
         {% endif %}
 
+        {# ── date group heading ───────────────────────────────── #}
         {% if row_date != ns.last_date %}
           {% set ns.last_date = row_date %}
           <div class="date-group">
@@ -222,46 +227,76 @@
           </div>
         {% endif %}
 
-        {% if row.event_id %}{% set typ = 'event' %}
-        {% elif row.certificate_id %}{% set typ = 'cert' %}
-        {% else %}{% set typ = 'other' %}{% endif %}
+        {# ── determine type ───────────────────────────────────── #}
+        {% if row.certificate_type == 'event' %}
+  {% set typ = 'event' %}
+{% else %}
+  {% set typ = 'cert' %}
+{% endif %}
 
         <div class="tl-item">
           <div class="tl-dot {{ typ }}"></div>
           <div class="tl-card">
+
+            {# Icon #}
             <div class="tl-icon {{ typ }}">
-              {% if typ == 'event' %}<i class="fas fa-calendar-check" style="color:#1B3A6B;"></i>
-              {% elif typ == 'cert' %}<i class="fas fa-certificate" style="color:#C8902A;"></i>
-              {% else %}<i class="fas fa-star" style="color:#6366f1;"></i>{% endif %}
+              {% if typ == 'event' %}
+                <i class="fas fa-calendar-check" style="color:#1B3A6B;"></i>
+              {% else %}
+                <i class="fas fa-certificate" style="color:#C8902A;"></i>
+              {% endif %}
             </div>
+
+            {# Title + tags #}
             <div class="tl-body">
               <div class="tl-title">
-                {% if row.event_name %}{{ row.event_name }}
-                {% elif row.activity_category %}{{ row.activity_category | replace('_',' ') | title }}
-                {% elif row.description %}{{ row.description }}
-                {% else %}Activity{% endif %}
-              </div>
-              <div class="tl-meta">
-                {% if typ == 'event' %}<span class="tl-type-badge badge-event">Event Attendance</span>
-                {% elif typ == 'cert' %}<span class="tl-type-badge badge-cert">Certificate / Self Initiative</span>
-                {% else %}<span class="tl-type-badge badge-other">Other Activity</span>{% endif %}
-                {% if row.description %}&nbsp;·&nbsp; {{ row.description }}{% endif %}
+  {% if typ == 'event' %}
+    
+    {% if row.event_id and row.event_name %}
+      {{ row.event_name }}
+    {% else %}
+      Event Participation
+    {% endif %}
+  
+  {% else %}
+    {{ row.activity_category | replace('_',' ') | title if row.activity_category else 'Self Initiative' }}
+  {% endif %}
+</div>
+              <div class="tl-tags">
+                {% if typ == 'event' %}
+                  <span class="tag tag-event"><i class="fas fa-calendar-alt"></i> Event</span>
+                {% else %}
+                  <span class="tag tag-self"><i class="fas fa-user"></i> Self Initiative</span>
+                  {% if row.activity_category %}
+                    <span class="tag tag-type">{{ row.activity_category | replace('_',' ') | title }}</span>
+                  {% endif %}
+                {% endif %}
               </div>
             </div>
+
+            {# Right: points + date + eye #}
             <div class="tl-right">
               <span class="tl-pts">+{{ row.points }}</span>
-              <span class="tl-date">
-                {% if row.date_awarded %}
-                  {% if row.date_awarded is string %}{{ row.date_awarded[:10] }}
-                  {% else %}{{ row.date_awarded.strftime('%d %b %Y') }}{% endif %}
-                {% else %}—{% endif %}
-              </span>
+              <span class="tl-date">{{ row_date_display }}</span>
+              {# Eye button — show for events AND certificates #}
+              {% if typ == 'event' and row.event_id %}
+                <a href="{{ url_for('student_events') }}" class="btn-eye" title="View Event">
+                  <i class="fas fa-eye"></i> View
+                </a>
+              {% elif row.file_path %}
+                <a href="/uploads/{{ row.file_path }}" target="_blank" class="btn-eye" title="View Certificate">
+                  <i class="fas fa-eye"></i> View
+                </a>
+              {% endif %}
             </div>
+
           </div>
         </div>
+
       {% endfor %}
     </div>
   </div>
+
   {% else %}
   <div class="empty-state">
     <i class="fas fa-trophy"></i>
@@ -271,14 +306,11 @@
   {% endif %}
 </div>
 
-<!-- ══════════════════════════════════════════════════════════════════
-     POPUP
-═══════════════════════════════════════════════════════════════════ -->
+<!-- ── POPUP ──────────────────────────────────────────────────────── -->
 <div class="ap-overlay" id="apOverlay">
   <div class="ap-popup {% if total_points >= 100 %}success{% else %}progress-var{% endif %}" id="apPopup">
 
     {% if total_points >= 100 %}
-      <!-- 🎉 SUCCESS popup -->
       <canvas id="confettiCanvas"></canvas>
       <span class="ap-emoji">🏆</span>
       <div class="ap-pts-big">100</div>
@@ -293,7 +325,6 @@
       </button>
 
     {% else %}
-      <!-- 📈 PROGRESS popup -->
       {% set needed = 100 - total_points %}
       <span class="ap-emoji">💪</span>
       <div class="ap-pts-big">{{ needed }}</div>
@@ -310,24 +341,19 @@
       <a href="{{ url_for('student_events') }}" class="ap-btn ap-btn-primary">
         <i class="fas fa-calendar-alt"></i> Browse Events
       </a>
-      <button class="ap-btn ap-btn-ghost" onclick="closePopup()">
-        Maybe Later
-      </button>
+      <button class="ap-btn ap-btn-ghost" onclick="closePopup()">Maybe Later</button>
     {% endif %}
 
   </div>
 </div>
 
 <script>
-/* ── Show popup on load ──────────────────────────────────────────── */
 window.addEventListener('load', () => {
   setTimeout(() => {
     document.getElementById('apOverlay').classList.add('open');
-
     {% if total_points >= 100 %}
     startConfetti();
     {% else %}
-    // Animate mini progress bar
     setTimeout(() => {
       document.getElementById('apMiniBar').style.width = '{{ [progress, 100] | min }}%';
     }, 100);
@@ -337,55 +363,41 @@ window.addEventListener('load', () => {
 
 function closePopup() {
   document.getElementById('apOverlay').classList.remove('open');
-  {% if total_points >= 100 %}
-  stopConfetti();
-  {% endif %}
+  {% if total_points >= 100 %}stopConfetti();{% endif %}
 }
 
-/* ── Confetti (success only) ─────────────────────────────────────── */
 {% if total_points >= 100 %}
 let confettiAnimId = null;
 const COLOURS = ['#C8902A','#1B3A6B','#22c55e','#6366f1','#ef4444','#f59e0b','#10b981','#3b82f6'];
 
 function startConfetti() {
-  const canvas  = document.getElementById('confettiCanvas');
-  const ctx     = canvas.getContext('2d');
-  const popup   = document.getElementById('apPopup');
+  const canvas = document.getElementById('confettiCanvas');
+  const ctx    = canvas.getContext('2d');
+  const popup  = document.getElementById('apPopup');
   canvas.width  = popup.offsetWidth;
   canvas.height = popup.offsetHeight;
 
   const pieces = Array.from({length: 80}, () => ({
-    x:    Math.random() * canvas.width,
-    y:    Math.random() * canvas.height - canvas.height,
-    w:    6 + Math.random() * 8,
-    h:    10 + Math.random() * 6,
-    rot:  Math.random() * 360,
-    rotS: (Math.random() - .5) * 8,
-    vy:   2 + Math.random() * 3,
-    vx:   (Math.random() - .5) * 2,
-    col:  COLOURS[Math.floor(Math.random() * COLOURS.length)],
-    op:   .8 + Math.random() * .2,
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height - canvas.height,
+    w: 6 + Math.random() * 8, h: 10 + Math.random() * 6,
+    rot: Math.random() * 360, rotS: (Math.random() - .5) * 8,
+    vy: 2 + Math.random() * 3, vx: (Math.random() - .5) * 2,
+    col: COLOURS[Math.floor(Math.random() * COLOURS.length)],
+    op: .8 + Math.random() * .2,
   }));
 
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     pieces.forEach(p => {
-      ctx.save();
-      ctx.globalAlpha = p.op;
-      ctx.translate(p.x + p.w / 2, p.y + p.h / 2);
+      ctx.save(); ctx.globalAlpha = p.op;
+      ctx.translate(p.x + p.w/2, p.y + p.h/2);
       ctx.rotate(p.rot * Math.PI / 180);
       ctx.fillStyle = p.col;
-      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
       ctx.restore();
-
-      p.x   += p.vx;
-      p.y   += p.vy;
-      p.rot += p.rotS;
-
-      if (p.y > canvas.height) {
-        p.y = -p.h;
-        p.x = Math.random() * canvas.width;
-      }
+      p.x += p.vx; p.y += p.vy; p.rot += p.rotS;
+      if (p.y > canvas.height) { p.y = -p.h; p.x = Math.random() * canvas.width; }
     });
     confettiAnimId = requestAnimationFrame(draw);
   }
@@ -394,8 +406,8 @@ function startConfetti() {
 
 function stopConfetti() {
   if (confettiAnimId) cancelAnimationFrame(confettiAnimId);
-  const canvas = document.getElementById('confettiCanvas');
-  if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  const c = document.getElementById('confettiCanvas');
+  if (c) c.getContext('2d').clearRect(0, 0, c.width, c.height);
 }
 {% endif %}
 </script>
