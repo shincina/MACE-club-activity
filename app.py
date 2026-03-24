@@ -960,23 +960,16 @@ def faculty_reject_event(event_id):
 def faculty_verify_certificate(certificate_id):
     cursor = mysql.connection.cursor()
     try:
-
-        # Get faculty_id from session
         faculty_id = session['user_id']
 
-        # Get certificate details
         cursor.execute('''
             SELECT 
                 c.certificate_id, c.student_id, c.event_id,
                 c.certificate_type, c.file_path, c.upload_date,
                 c.status, c.points_awarded, c.activity_category,
-                e.points AS event_points, e.event_name,
-                ea.attendance_status
+                e.points AS event_points, e.event_name
             FROM certificates c
             LEFT JOIN events e ON c.event_id = e.event_id
-            LEFT JOIN event_attendance ea ON (
-                c.event_id = ea.event_id AND c.student_id = ea.student_id
-            )
             WHERE c.certificate_id = %s
         ''', (certificate_id,))
 
@@ -989,24 +982,17 @@ def faculty_verify_certificate(certificate_id):
             return jsonify({'success': False, 'message': 'Certificate already processed'}), 400
 
         student_id = cert['student_id']
-        certificate_type = cert['certificate_type']
-
         data = request.get_json() or {}
         custom_points = data.get('points', 0)
 
-        if certificate_type == 'self_initiative':
+        # ── Same logic for both types ─────────────────────────────
+        if cert['certificate_type'] == 'self_initiative':
             points_to_award = int(custom_points) if custom_points else 5
             description = f"Self-initiative: {cert['activity_category']}"
         else:
-            if not cert['event_id']:
-                return jsonify({'success': False, 'message': 'Event not found for certificate'}), 400
-            if cert['attendance_status'] != 'present':
-                return jsonify({
-                    'success': False,
-                    'message': f'Student was {cert["attendance_status"] or "absent"} for this event.'
-                }), 400
-            points_to_award = int(custom_points) if custom_points else (cert['event_points'] or 0)
+            points_to_award = int(custom_points) if custom_points else (cert['event_points'] or 5)
             description = f"Event participation: {cert['event_name']}"
+        # ─────────────────────────────────────────────────────────
 
         cursor.execute('''
             UPDATE certificates 
@@ -1027,12 +1013,7 @@ def faculty_verify_certificate(certificate_id):
         ''', (points_to_award, student_id))
 
         mysql.connection.commit()
-
-        return jsonify({
-            'success': True,
-            'message': 'Certificate approved successfully',
-            'points': points_to_award
-        }), 200
+        return jsonify({'success': True, 'message': 'Certificate approved', 'points': points_to_award}), 200
 
     except Exception as e:
         mysql.connection.rollback()
@@ -1292,7 +1273,11 @@ def coordinator_new_event():
     coord_clubs = cursor.fetchall()
 
     if request.method == 'POST':
+        print("FILES:", request.files)          # should show: ImmutableMultiDict([('event_photo', <FileStorage: 'yourfile.jpg'>)])
+        print("PHOTO FILE:", request.files.get('event_photo'))
+        print("FILENAME:", request.files.get('event_photo').filename)
         club_id = request.form.get('club_id')
+
         cursor.execute('''
             SELECT club_id FROM membership
             WHERE student_id = %s AND club_id = %s AND role = 'coordinator' AND status = 'approved'
@@ -1302,32 +1287,54 @@ def coordinator_new_event():
             # Handle photo upload
             photo_path = None
             photo_file = request.files.get('event_photo')
+
             if photo_file and photo_file.filename:
                 import os, time
-                events_folder = os.path.join(app.config['UPLOAD_FOLDER'], 'events')
-                os.makedirs(events_folder, exist_ok=True)  # create folder if not exists
+                from werkzeug.utils import secure_filename
 
-                ext = photo_file.filename.rsplit('.', 1)[-1].lower()
-                filename = f"event_{club_id}_{int(time.time())}.{ext}"
-                photo_file.save(os.path.join(events_folder, filename))
-                photo_path = f"events/{filename}"  # store subfolder + filename
+                ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
+
+                if '.' in photo_file.filename:
+                    ext = photo_file.filename.rsplit('.', 1)[-1].lower()
+
+                    if ext in ALLOWED_EXTENSIONS:
+                        events_folder = os.path.join(app.config['UPLOAD_FOLDER'], 'events')
+                        os.makedirs(events_folder, exist_ok=True)
+
+                        filename = secure_filename(f"event_{club_id}_{int(time.time())}.{ext}")
+                        photo_file.save(os.path.join(events_folder, filename))
+                        photo_path = f"events/{filename}"
+                    else:
+                        flash('Invalid file type. Only images are allowed.', 'error')
+                        cursor.close()
+                        return redirect(url_for('coordinator_new_event'))
 
             cursor.execute('''
                 INSERT INTO events (club_id, event_name, event_date, event_time, location,
                     description, max_participants, points, reg_fee, status, created_by, photo)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s)
-            ''', (club_id, request.form['event_name'], request.form['event_date'],
-                request.form['event_time'], request.form['location'],
-                request.form['description'], request.form['max_participants'],
-                request.form['points'], request.form.get('reg_fee_final', 0),
-                reg_no, photo_path))   # ← photo_path added
+            ''', (
+                club_id,
+                request.form['event_name'],
+                request.form['event_date'],
+                request.form['event_time'],
+                request.form['location'],
+                request.form['description'],
+                request.form['max_participants'],
+                request.form['points'],
+                request.form.get('reg_fee_final', 0),  # ← verify this matches your HTML
+                reg_no,
+                photo_path
+            ))
             mysql.connection.commit()
             flash('Event submitted for approval!', 'success')
+
         else:
             flash('Invalid club selection.', 'error')
 
         cursor.close()
         return redirect(url_for('coordinator_dashboard'))
+
     cursor.close()
     return render_template('coordinator/new_event.html', coord_clubs=coord_clubs)
 
